@@ -1,0 +1,5 @@
+"Reference","Qty","Value","DNP","Exclude from BOM","Exclude from Board","Footprint","Datasheet"
+"D1","1","NeoPixel_THT","","","","","https://www.adafruit.com/product/1938"
+"SW1","1","RotaryEncoder_Switch","","","","","~"
+"U1,U3","2","~","","","","",""
+"U2","1","ADXL343","","","","Package_LGA:LGA-14_3x5mm_P0.8mm_LayoutBorder1x6y","https://www.analog.com/media/en/technical-documentation/data-sheets/ADXL343.pdf"

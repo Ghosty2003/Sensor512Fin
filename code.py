@@ -1,3 +1,5 @@
+import os
+import json
 import time
 import math
 import board
@@ -37,7 +39,7 @@ WALL_OFFSET = 5
 ACC_SCALE = 0.3
 FRICTION = 0.90
 MAX_SPEED = 2.5
-
+BIT_FILE = "/bit.txt"
 
 # ================================
 # Rotary Encoder Setup
@@ -79,6 +81,11 @@ pixels_right = neopixel.NeoPixel(pixel_right_pin, 1, brightness=0.3, auto_write=
 # BUZZER Setup
 # ================================
 BUZZER_PIN = board.D3
+
+# ================================
+# accelerometer Setup
+# ================================
+accel = EMAFilterAccelerometer(adafruit_adxl34x.ADXL345(i2c), alpha=0.3)
 
 def play_intro_animation():
     width = display.width
@@ -171,6 +178,44 @@ def play_intro_animation():
     time.sleep(2)
 
 
+
+
+def load_game_data():
+    """读取 bit.txt，如果存在就返回 dict，否则返回默认值"""
+    default_data = {
+        "times": -1,
+        "easyleft": -1,
+        "mediumleft": -1,
+        "hardleft": -1,
+        "success": -1
+    }
+    try:
+        if BIT_FILE in os.listdir("/"):
+            with open(BIT_FILE, "r") as f:
+                data = json.load(f)
+                # 确保缺失字段补上默认值
+                for key in default_data:
+                    if key not in data:
+                        data[key] = default_data[key]
+                return data
+    except Exception as e:
+        print("read bit.txt error:", e)
+    return default_data
+
+def save_game_data(times, easyleft, mediumleft, hardleft, success):
+    """保存当前游戏数据到 bit.txt"""
+    data = {
+        "times": times,
+        "easyleft": easyleft,
+        "mediumleft": mediumleft,
+        "hardleft": hardleft,
+        "success": success
+    }
+    try:
+        with open(BIT_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print("save bit.txt error:", e)
 
 
 def play_tone(freq, duration=0.1, volume=32767):
@@ -397,6 +442,34 @@ def display_lines(num_lines, options, with_typing_sound=False):
 # 游戏主循环（使用你提供的物理公式）
 # ================================
 
+def end_game(sound):
+    """
+    游戏结束后的处理：
+    1. 显示选项：继续游戏或结束游戏
+    2. 如果选择结束，OLED 黑屏，进入 shake 监测循环
+    3. 如果检测到晃动，返回 True，表示可以重新开始游戏
+    """
+    # 显示菜单选项
+    choice = display_lines(2, ["Continue", "End Game"], sound)
+    
+    if choice == 0:
+        # 继续游戏
+        return
+    else:
+        # 结束游戏：OLED 黑屏
+        choice = display_lines(1, ["Fine :("], sound)
+        display.root_group = displayio.Group()  # 清空屏幕
+        display.refresh()
+        
+        # 持续监测晃动
+        while True:
+            ax, ay, az = accel.read_filtered()
+            if accel.detect_shake(x = ax, y = ay, z = az):
+                choice = display_lines(1, ["Hey you're back! Let's continue :D"], sound)
+                return 
+            time.sleep(0.05)  # 防止占用太高 CPU
+
+
 def run_game(mode, choice, times, sound):
     """游戏总入口，根据 mode 进入不同游戏逻辑"""
     if mode == "Tutorial":
@@ -411,8 +484,7 @@ def tutorial_game():
     
     group = displayio.Group()
     wall_utils = WallUtils()
-    # 初始化加速度计（带 EMA 滤波）
-    accel = EMAFilterAccelerometer(adafruit_adxl34x.ADXL345(i2c), alpha=0.3)
+    
         
     lives = 3
     wall_utils.draw_lives(group, lives)
@@ -645,16 +717,12 @@ def normal_game(mode, times, sound):
         time_limit = 30
         lives = 1
     
-    target_score = 10
+    target_score = 1
     start_time = time.monotonic()
 
     group = displayio.Group()
     wall_utils = WallUtils()
-    # 初始化加速度计（带 EMA 滤波）
-    accel = EMAFilterAccelerometer(adafruit_adxl34x.ADXL345(i2c), alpha=0.3)
-    # 初始化旋转编码器
-        
-    
+
     wall_utils.draw_lives(group, lives)
     # 初始化倒计时显示
     wall_utils.draw_countdown(group, time_limit)
@@ -896,10 +964,7 @@ def boss_game():
 
     group = displayio.Group()
     wall_utils = WallUtils()
-    # 初始化加速度计（带 EMA 滤波）
-    accel = EMAFilterAccelerometer(adafruit_adxl34x.ADXL345(i2c), alpha=0.3)
-        
-    
+  
     wall_utils.draw_lives(group, lives)
     # 初始化倒计时显示
     wall_utils.draw_countdown(group, time_limit)
@@ -1182,14 +1247,48 @@ def choose_difficulty(Easy_left, Medium_left, Hard_left, sound):
 # 主入口
 # ================================
 def main():
-    times = 6
-    Easy_left = 3
-    Medium_left = 3
-    Hard_left = 3
+
+    game_data = load_game_data()
+    # 检查是否全是 -1，如果是就初始化
+    if game_data.get('mediumleft', -1) == -1 and game_data.get('easyleft', -1) == -1 and game_data.get('hardleft', -1) == -1:
+        times = 0
+        Easy_left = 3
+        Medium_left = 3
+        Hard_left = 3
+        save_game_data(times, Easy_left, Medium_left, Hard_left, 0)
+    else:
+        times = game_data["times"]
+        Easy_left = game_data["easyleft"]
+        Medium_left = game_data["mediumleft"]
+        Hard_left = game_data["hardleft"]
+
+    Success = game_data["success"]
+    if Success == 1:
+        sound = True
+        display_lines(1,["Oh you come back, unexpected! :)"], sound)
+        display_lines(1,["Wanna challenge me agian?"], sound)
+        display_lines(1,["Now that I can't beat you.."], sound)
+        display_lines(1,["I'll try to catch your interests ;)"], sound)
+        while True:
+            display_lines(1,["You know the rules"], sound)
+            choice_index, Easy_left, Medium_left, Hard_left= choose_difficulty(Easy_left, Medium_left, Hard_left, sound)
+    
+            passes = run_game("normal", choice_index, 10, sound)
+    elif Success == 2:
+        sound = True
+        display_lines(1,["Nice to meet you again :)"], sound)
+        display_lines(1,["Stay and play ;)"], sound)
+        display_lines(1,["We only have hard mode by the way"], sound)
+        display_lines(1,["I'll kill you for fun =)"], sound)
+        while True:
+            choice_index, Easy_left, Medium_left, Hard_left= choose_difficulty(0, 0, Hard_left, sound)
+            passes = run_game("normal", choice_index, 1, sound)
+
+
     speaking = False
     sound = False
     # 游戏开始前播放动画
-    play_intro_animation()
+    #play_intro_animation()
     # 步骤1：显示第一行
     display_lines(1,["Hi! My name is Bit"])
     # 步骤2：显示第二行
@@ -1260,24 +1359,35 @@ def main():
             display_lines(1,["I like you :)"],sound)
             display_lines(1,["LET'S PLAY A GAME, SHELL WE ?"],sound)
             passes = run_game("Boss", 0, 0,sound)
+
             
         choice_index, Easy_left, Medium_left, Hard_left = choose_difficulty(Easy_left, Medium_left, Hard_left, sound)
     
         passes = run_game("normal", choice_index, times, sound)
         
-        if not passes:
-            times -= 1
-            if choice_index == 0:
-                Easy_left += 1
-            elif choice_index == 1:
-                Medium_left += 1
+        if Success == 0:
+            if not passes:
+                times -= 1
+                if choice_index == 0:
+                    Easy_left += 1
+                elif choice_index == 1:
+                    Medium_left += 1
+                else:
+                    Hard_left += 1
             else:
-                Hard_left += 1
-        else:
-            speaking = False
+                print("yes")
+                save_game_data(times, Easy_left, Medium_left, Hard_left, 0)
+                speaking = False
+                
+        # if gamer want to end     
+        end_game(sound)
 
 if __name__ == "__main__":
     main()
+
+
+
+
 
 
 

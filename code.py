@@ -15,7 +15,6 @@ import i2cdisplaybus
 import adafruit_displayio_ssd1306
 import adafruit_adxl34x
 from filter import EMAFilterAccelerometer
-from rotary_filter import RotaryHandler
 from rotary_encoder import RotaryEncoder
 from adafruit_debouncer import Debouncer
 from Enemy import Enemy

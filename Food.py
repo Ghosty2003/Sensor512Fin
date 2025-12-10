@@ -4,10 +4,10 @@ import displayio
 class Food:
     def __init__(self, group, screen_width, screen_height, size=2, points=1):
         """
-        group: displayio.Group，显示组
-        screen_width, screen_height: 屏幕宽高，用于随机生成位置
-        size: 豆子大小
-        points: 吃掉后的加分
+        group: displayio.Group, the display group
+        screen_width, screen_height: screen dimensions, used for random placement
+        size: size of the food
+        points: score gained when eaten
         """
         self.group = group
         self.screen_width = screen_width
@@ -17,17 +17,17 @@ class Food:
 
         self.bitmap = displayio.Bitmap(size, size, 2)
         palette = displayio.Palette(2)
-        palette[0] = 0x000000  # 背景黑
-        palette[1] = 0xFFFFFF      # 豆子颜色
+        palette[0] = 0x000000  # background black
+        palette[1] = 0xFFFFFF  # food color
         self.tile = displayio.TileGrid(self.bitmap, pixel_shader=palette)
 
-        # 随机生成初始位置
+        # randomly generate initial position
         self.x = random.randint(0, screen_width - size)
         self.y = random.randint(0, screen_height - size)
         self.tile.x = self.x
         self.tile.y = self.y
 
-        # 初始化豆子像素
+        # initialize food pixels
         for i in range(size):
             for j in range(size):
                 self.bitmap[i, j] = 1
@@ -37,9 +37,9 @@ class Food:
 
     def check_collision(self, player_x, player_y, player_size):
         """
-        检查玩家是否碰到豆子
-        player_x, player_y: 玩家左上角坐标
-        player_size: 玩家宽高（球的大小）
+        Check if the player collides with the food.
+        player_x, player_y: player's top-left coordinates
+        player_size: player's width/height (size of the ball)
         """
         if self.eaten:
             return False
@@ -62,14 +62,14 @@ class Food:
         return False
 
     def eat(self):
-        """被吃掉，移除显示"""
+        """Mark as eaten and remove from display"""
         if not self.eaten:
             if self.tile in self.group:
                 self.group.remove(self.tile)
             self.eaten = True
 
     def respawn(self):
-        """随机重生（可选）"""
+        """Respawn randomly (optional)"""
         self.eaten = False
         self.x = random.randint(0, self.screen_width - self.size)
         self.y = random.randint(0, self.screen_height - self.size)

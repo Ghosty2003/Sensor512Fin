@@ -7,21 +7,21 @@ import time
 class EMAFilterAccelerometer:
     def __init__(self, accelerometer, alpha=0.2):
         """
-        accelerometer: 已初始化的 adafruit_adxl34x.ADXL345 对象
+        accelerometer: initialized adafruit_adxl34x.ADXL345 object
         """
         self.accelerometer = accelerometer
         self.alpha = alpha
 
-        # 初始化过滤值
+        # Initialize filtered values
         x_raw, y_raw, z_raw = self.accelerometer.acceleration
         self.xFiltered = x_raw
         self.yFiltered = y_raw
         self.zFiltered = z_raw
         
-        # 保存上一次的加速度值用于检测 shake
-        self.prev_x = x_raw
-        self.prev_y = y_raw
-        self.prev_z = z_raw
+        # Store previous acceleration values for shake detection
+        self.prev_x = self.xFiltered
+        self.prev_y = self.yFiltered
+        self.prev_z = self.zFiltered
         
 
     def read_filtered(self):
@@ -33,8 +33,8 @@ class EMAFilterAccelerometer:
     
     def detect_shake(self, threshold=1.0, x=None, y=None, z=None):
         """
-        threshold: 加速度变化阈值，单位 m/s^2
-        x,y,z: 已读取的滤波值，如果提供则不用再读取
+        threshold: acceleration change threshold in m/s^2
+        x, y, z: filtered values; if provided, skip re-reading
         """
         if x is None or y is None or z is None:
             x, y, z = self.read_filtered()
@@ -52,11 +52,11 @@ class EMAFilterAccelerometer:
 
 
 if __name__ == "__main__":
-    # 初始化 I2C 和加速度计
+    # Initialize I2C and accelerometer
     i2c = busio.I2C(board.SCL, board.SDA)
     accelerometer = adafruit_adxl34x.ADXL345(i2c)
 
-    # 初始化 EMA 滤波器
+    # Initialize EMA filter
     ema_acc = EMAFilterAccelerometer(accelerometer, alpha=0.2)
 
     print("Starting EMA low-pass filtering with shake detection...\n")
@@ -65,5 +65,4 @@ if __name__ == "__main__":
         shake = ema_acc.detect_shake(threshold=1.0, x=x, y=y, z=z)
         print(f"Filtered X:{x:.2f} Y:{y:.2f} Z:{z:.2f}  Shake:{shake}")
         time.sleep(0.05)
-
 

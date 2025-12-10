@@ -22,7 +22,7 @@ class WallUtils:
         self.shield_list = []
 
     def draw_wall(self, group, x, y, w, h, color=1):
-        """画单个墙壁"""
+        """Draw a single wall"""
         bitmap = displayio.Bitmap(w, h, 2)
         for i in range(w):
             for j in range(h):
@@ -35,16 +35,16 @@ class WallUtils:
         return tile
     
     def draw_lives(self, parent_group, lives):
-        # 如果没有 life_group，则创建
+        # If life_group does not exist, create it
         if not hasattr(self, "life_group"):
             self.life_group = displayio.Group()
             parent_group.append(self.life_group)
 
-        # 清空生命图标组
+        # Clear old life icons
         while len(self.life_group) > 0:
             self.life_group.pop()
 
-        # ❤️ 4x4 心形像素图（1=亮色，0=背景）
+        # ❤️ 4x4 heart pixel pattern (1 = lit, 0 = background)
         heart_pattern = [
             [1, 0, 0, 1],
             [1, 1, 1, 1],
@@ -55,10 +55,10 @@ class WallUtils:
         for i in range(lives):
             bmp = displayio.Bitmap(4, 4, 2)
             pal = displayio.Palette(2)
-            pal[0] = 0x000000  # 黑色（背景）
-            pal[1] = 0xFFFFFF  # 白色（心形）
+            pal[0] = 0x000000  # Black (background)
+            pal[1] = 0xFFFFFF  # White (heart)
 
-            # 写入爱心像素
+            # Write heart pixels
             for y in range(4):
                 for x in range(4):
                     bmp[x, y] = heart_pattern[y][x]
@@ -72,7 +72,7 @@ class WallUtils:
 
 
     # ================================
-    # 生成随机方向
+    # Generate random directions
     # ================================
     def simple_sample(self, pool, k):
         pool_copy = list(pool)
@@ -83,8 +83,8 @@ class WallUtils:
         return result
 
     def generate_random_directions(self, last_dir):
-        must_include = OPPOSITE[last_dir]  # 反方向必须出现
-        pool = [d for d in DIRECTIONS if d != must_include]  # 排除玩家撞的方向本身
+        must_include = OPPOSITE[last_dir]  # Opposite direction must appear
+        pool = [d for d in DIRECTIONS if d != must_include]  # Exclude the direction the player hit
         r = random.random()
         
         if r < 0.33:
@@ -98,11 +98,11 @@ class WallUtils:
         return dirs
 
     # ================================
-    # 画阻挡墙
+    # Draw blocking walls
     # ================================
     def draw_block_walls(self, group, allowed_dirs):
-        """根据 allowed_dirs 绘制阻挡墙"""
-        # 清除旧墙
+        """Draw blocking walls based on allowed_dirs"""
+        # Remove old walls
         for wall in self.walls_list:
             if wall in group:
                 group.remove(wall)
@@ -149,17 +149,18 @@ class WallUtils:
             x, y, w, h = walls[d]
             wall_obj = self.draw_wall(group, x, y, w, h)
             self.walls_list.append(wall_obj)
+
     # ================================
-    # 绘制玩家周围白色防护线
+    # Draw white protective lines around player
     # ================================
     def update_shields_position(self, player_x, player_y):
-        """根据玩家当前位置移动已有 shields"""
+        """Move existing shields based on player's current position"""
         if not hasattr(self, "shield_list"):
             return
 
         length = 20
         thickness = 2
-        padding = 2  # 离玩家的距离
+        padding = 2  # Distance from player
 
         for shield in self.shield_list:
             tile = shield["tile"]
@@ -180,13 +181,13 @@ class WallUtils:
     def draw_player_shields(self, group, player_x, player_y, dirs):
         """
         dirs: ["UP", "LEFT", "RIGHT", "DOWN"]
-        每条白线长 20px，厚度 2px，靠近玩家
+        Each white line is 20px long, 2px thick, close to the player
         """
 
         if not hasattr(self, "shield_list"):
             self.shield_list = []
 
-        # 删除旧 shields
+        # Remove old shields
         for s in self.shield_list:
             if s["tile"] in group:
                 group.remove(s["tile"])
@@ -194,7 +195,7 @@ class WallUtils:
 
         length = 20
         thickness = 2
-        padding = 2  # 靠近玩家
+        padding = 2  # Close to the player
         px = int(player_x)
         py = int(player_y)
 
@@ -213,12 +214,12 @@ class WallUtils:
             self.shield_list.append({"tile": tile, "dir": d})
             
     def draw_score(self, parent_group, initial_score=0):
-        """在左上角绘制分数"""
+        """Draw score in the top-left corner"""
         if not hasattr(self, "score_group"):
             self.score_group = displayio.Group()
             parent_group.append(self.score_group)
 
-        # 清空旧显示
+        # Clear old content
         while len(self.score_group) > 0:
             self.score_group.pop()
 
@@ -227,46 +228,39 @@ class WallUtils:
             terminalio.FONT,
             text=f"score: {self.score}",
             color=0xFFFFFF,
-            anchored_position=(5, 5),  # 左上角
+            anchored_position=(5, 5),  # Top-left corner
             anchor_point=(0, 0)
         )
         self.score_group.append(self.score_label)
 
     def update_score(self, new_score):
-        """更新分数显示"""
+        """Update score display"""
         self.score = new_score
         self.score_label.text = f"score: {self.score}"
         
         
     def draw_countdown(self, parent_group, countdown_value):
-        """在右上角显示倒计时数字，例如：countdown: 10"""
+        """Display countdown number at top-right, e.g.: countdown: 10"""
         if not hasattr(self, "countdown_group"):
             self.countdown_group = displayio.Group()
             parent_group.append(self.countdown_group)
 
-        # 清空旧内容
+        # Clear old content
         while len(self.countdown_group) > 0:
             self.countdown_group.pop()
 
         self.countdown = countdown_value
         self.countdown_label = label.Label(
             terminalio.FONT,
-            text=f"countdown: {self.countdown}",
+            text=f"{self.countdown}",
             color=0xFFFFFF,
-            anchored_position=(SCREEN_WIDTH - 10, 10),  # 右上角
-            anchor_point=(1, 0)  # 右对齐
+            anchored_position=(SCREEN_WIDTH - 8, 8),  # Top-right corner
+            anchor_point=(1, 0)  # Right aligned
         )
         self.countdown_group.append(self.countdown_label)
 
     def update_countdown(self, new_value):
-        """更新倒计时显示"""
+        """Update countdown display"""
         self.countdown = new_value
-        self.countdown_label.text = f"countdown: {self.countdown}"
-
-
-
-
-
-
-
+        self.countdown_label.text = f"{self.countdown}"
 

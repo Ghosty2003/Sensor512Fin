@@ -22,12 +22,12 @@ class Enemy:
         self.style = style
         self.teeth_count = teeth_count
 
-        # 创建 bitmap
+        # Create bitmap
         self.bitmap = displayio.Bitmap(size, size, 1)
         palette = displayio.Palette(2)
-        palette[0] = 0x000000  # 背景黑
-        palette[1] = 0xFFFFFF  # 前景白
-        bitmap = displayio.Bitmap(size, size, 2)  # 2 个颜色索引
+        palette[0] = 0x000000  # background black
+        palette[1] = 0xFFFFFF  # foreground white
+        bitmap = displayio.Bitmap(size, size, 2)  # 2 color indices
 
         self.tile = displayio.TileGrid(self.bitmap, pixel_shader=palette)
         self.tile.x = int(x)
@@ -39,35 +39,35 @@ class Enemy:
         self.group = group
         self.group.append(self.tile)
 
-        # 闪烁相关
+        # Blinking control
         self.last_toggle = time.monotonic()
         self.pixel_on = True
 
-        # 初始化形状
+        # Initialize shape
         self._draw_initial()
 
     # ----------------------------------------
-    # NEW: 玩家是否碰到敌人？
+    # NEW: Check if enemy collides with player
     # ----------------------------------------
     def has_collision(self, player_x, player_y, player_size):
         """
-        player_x, player_y：玩家左上角坐标
-        player_size：球的宽/高（例如 6 或 8）
+        player_x, player_y: player's top-left corner
+        player_size: player's width/height (e.g., 6 or 8)
         """
 
-        # 敌人矩形
+        # Enemy rectangle
         e_left = self.x
         e_top = self.y
         e_right = self.x + self.size
         e_bottom = self.y + self.size
 
-        # 玩家矩形
+        # Player rectangle
         p_left = player_x
         p_top = player_y
         p_right = player_x + player_size
         p_bottom = player_y + player_size
 
-        # 轴对齐矩形碰撞（AABB）
+        # Axis-aligned bounding box collision (AABB)
         if (e_left < p_right and
             e_right > p_left and
             e_top < p_bottom and
@@ -84,7 +84,7 @@ class Enemy:
             self._draw_spiky_circle(1)
 
     def _draw_circle(self, color):
-        """5x5 曼哈顿圆"""
+        """5x5 Manhattan circle"""
         center = self.size // 2
         for i in range(self.size):
             for j in range(self.size):
@@ -94,7 +94,7 @@ class Enemy:
                     self.bitmap[i,j] = 0
 
     def _draw_spiky_circle(self, color):
-        """8x8 带12个锯齿的圆"""
+        """8x8 circle with 12 spikes"""
         center = (self.size - 1) / 2
         radius = center
         for i in range(self.size):
@@ -116,7 +116,7 @@ class Enemy:
     def update(self, player_x, player_y):
         now = time.monotonic()
 
-        # 闪烁圆形闪烁
+        # Blinking circle animation
         if self.style == "blink_circle":
             blink_interval = max(0.05, self.gray_level * 0.1)
             if now - self.last_toggle > blink_interval:
@@ -124,11 +124,11 @@ class Enemy:
                 self.pixel_on = not self.pixel_on
                 self._draw_circle(1 if self.pixel_on else 0)
 
-        # 未激活不移动
+        # Not activated → don't move
         if not self.active:
             return
 
-        # 追踪玩家
+        # Track player
         if self.x < player_x:
             self.x += self.speed
         elif self.x > player_x:
@@ -143,12 +143,12 @@ class Enemy:
         self.tile.y = int(self.y)
     
     # ----------------------------------------
-    # NEW: 敌人是否碰到 shield（白线）
+    # NEW: Check if enemy hits the shield (white line)
     # ----------------------------------------
     def check_hit_shield(self, shield_list):
         """
-        shield_list: WallUtils.shield_list, 每个元素是 {"tile": TileGrid, "dir": str}
-        返回 True 表示敌人碰到白线（应该消失）
+        shield_list: WallUtils.shield_list, each element is {"tile": TileGrid, "dir": str}
+        Returns True if enemy touches the shield (should disappear)
         """
         ex1 = self.tile.x
         ey1 = self.tile.y
@@ -159,10 +159,10 @@ class Enemy:
             s_tile = shield["tile"]
             sx1 = s_tile.x
             sy1 = s_tile.y
-            sx2 = sx1 + s_tile.bitmap.width   # 用 bitmap.width/height
+            sx2 = sx1 + s_tile.bitmap.width   # use bitmap.width/height
             sy2 = sy1 + s_tile.bitmap.height
 
-            # AABB 矩形碰撞检测
+            # AABB rectangle collision
             if (ex1 < sx2 and ex2 > sx1 and
                 ey1 < sy2 and ey2 > sy1):
                 return True
@@ -175,27 +175,28 @@ class Enemy:
 
         
 def test():
-    """在屏幕中心生成一个 Enemy 测试"""
-    # 创建显示组
+    """Spawn an Enemy at the screen center for testing"""
+    # Create display group
     group = displayio.Group()
     display.root_group = group
 
-    # 屏幕中心
+    # Screen center
     center_x = 128 // 2
     center_y = 64 // 2
 
-    # 生成敌人
+    # Spawn enemy
     enemy = Enemy(group, 80, 32, size=9, style="spiky_circle", teeth_count=12)
 
     print(f"Enemy spawned at center ({center_x}, {center_y})")
-    print("测试循环开始，敌人不动，因为未激活。")
+    print("Test loop begins; enemy will not move until activated.")
 
-    # 简单循环显示敌人 tile
+    # Simple test loop
     while True:
-        # 这里我们人为触发激活
-        enemy.check_activation(center_x, center_y)  # 激活条件距离自己中心，所以会立即激活
-        enemy.update(center_x, center_y)            # 激活后追踪玩家（这里是自己，所以不动）
+        # Manually activate for test
+        enemy.check_activation(center_x, center_y)  # Will activate immediately due to proximity
+        enemy.update(center_x, center_y)            # Tracking player (same point) → stays still
         time.sleep(0.02)
+
 if __name__ == "__main__":
     test()
 

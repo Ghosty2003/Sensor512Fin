@@ -1211,10 +1211,6 @@ def boss_game():
             clear(group)
             display.refresh()
 
-            # Deactivate all input pins
-            button.deinit()
-            rotary.pin_a.deinit()
-            rotary.pin_b.deinit()
 
             # Halt permanently
             while True:
@@ -1258,7 +1254,6 @@ def boss_game():
             x, y = enter_next_tile(hit_dir, x, y)
             ball_tile.x = int(x)
             ball_tile.y = int(y)
-            chaser_spawn_time = time.monotonic()
             last_hit_dir = hit_dir
 
             # Remove existing regular enemies
@@ -1271,23 +1266,8 @@ def boss_game():
             if chaser_enemy is not None and chaser_enemy.tile in group:
                 group.remove(chaser_enemy.tile)
             chaser_enemy = None
-
-            # Spawn new regular enemies
-            num_enemies = tile_data[hit_dir]["enemy"]
-            rand_positions = generate_random_positions(x, y, num_enemies)
-            enemy = [
-                Enemy(group, px, py, size=8, speed=0.8, activate_dist=30,
-                      style="spiky_circle", teeth_count=12)
-                for px, py in rand_positions
-            ]
-
-            # Generate new allowed directions for next tile
-            allowed_dirs = wall_utils.generate_random_directions(hit_dir)
-            wall_utils.draw_block_walls(group, allowed_dirs)
-            tile_data, food_max_dirs, enemy_max_dirs = generate_tile_data(allowed_dirs)
-
-        # --- Spawn chaser enemy after a short delay ---
-        if hit_dir and chaser_spawn_time is not None and (time.monotonic() - chaser_spawn_time) >= 0.2:
+            # --- Spawn chaser enemy---
+            
             spawn_x, spawn_y = enter_next_tile(hit_dir, x, y)
             if chaser_enemy is not None and chaser_enemy.tile in group:
                 group.remove(chaser_enemy.tile)
@@ -1300,7 +1280,23 @@ def boss_game():
                 activate_dist=150,
                 style="blink_circle"
             )
-            chaser_spawn_time = None  # Prevent multiple spawns
+
+
+            # Spawn new regular enemies
+            num_enemies = tile_data[hit_dir]["enemy"]
+            rand_positions = generate_random_positions(x, y, num_enemies)
+            enemy = [
+                Enemy(group, px, py, size=8, speed=0.8, activate_dist=30,
+                      style="spiky_circle", teeth_count=12)
+                for px, py in rand_positions
+            ]
+            
+
+            # Generate new allowed directions for next tile
+            allowed_dirs = wall_utils.generate_random_directions(hit_dir)
+            wall_utils.draw_block_walls(group, allowed_dirs)
+            tile_data, food_max_dirs, enemy_max_dirs = generate_tile_data(allowed_dirs)
+
 
         # --- Update regular enemies ---
         for e in enemy:
@@ -1324,9 +1320,6 @@ def boss_game():
                     save_game_data(10, 0, 0, 0, 2)  # success = 2
                     clear(group)
                     display.refresh()
-                    button.deinit()
-                    rotary.pin_a.deinit()
-                    rotary.pin_b.deinit()
                     while True:
                         pass
 
@@ -1337,6 +1330,7 @@ def boss_game():
                 blink_state = False
                 ball_tile.hidden = True
 
+    
         # --- Update chaser enemy ---
         if chaser_enemy is not None:
             chaser_enemy.check_activation(x, y)
@@ -1354,9 +1348,6 @@ def boss_game():
                     save_game_data(10, 0, 0, 0, 2)
                     clear(group)
                     display.refresh()
-                    button.deinit()
-                    rotary.pin_a.deinit()
-                    rotary.pin_b.deinit()
                     while True:
                         pass
 
@@ -1516,6 +1507,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 

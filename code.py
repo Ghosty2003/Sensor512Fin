@@ -823,7 +823,7 @@ def normal_game(mode, times, sound):
             # clear
             clear(group)
             display_lines(1, ["Congratulations"], sound)
-            display_lines(1, [f"You still get {remaining_time} left. Wonderful!"])
+            display_lines(1, [f"You still get {remaining_time} seconds left. Wonderful!"])
             turn_off_all_lights(controllers)
             return True
         # 检查玩家是否吃到豆子
@@ -1278,6 +1278,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

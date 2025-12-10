@@ -26,35 +26,34 @@ from WallUtils import WallUtils
 
 
 # ================================
-# 屏幕参数
+# Screen parameters
 # ================================
 SCREEN_WIDTH = 128
 SCREEN_HEIGHT = 64
 BALL_SIZE = 5
 ENEMY_SIZE = 8
 WALL_OFFSET = 5
+
 # ================================
-# 物理模拟参数（你的公式）
+# Physics simulation parameters
 # ================================
 ACC_SCALE = 0.3
 FRICTION = 0.90
 MAX_SPEED = 2.5
 BIT_FILE = "/bit.txt"
+TIME_FILE = "time_survived.txt"
 
 # ================================
 # Rotary Encoder Setup
 # ================================
-#encoder = RotaryEncoder(board.D7, board.D8, debounce_ms=3, pulses_per_detent=3)
-# 全局只创建一次
 rotary = RotaryDecoder(board.D7, board.D8, pulses_per_detent=3)
 
-
 # ================================
-# 按钮（使用 D9）
+# Button Setup (using D9)
 # ================================
 pin = digitalio.DigitalInOut(board.D9)
 pin.direction = digitalio.Direction.INPUT
-pin.pull = digitalio.Pull.UP   # 按下 = False
+pin.pull = digitalio.Pull.UP
 button = Debouncer(pin)
 
 # ================================
@@ -64,6 +63,7 @@ displayio.release_displays()
 i2c = busio.I2C(board.SCL, board.SDA)
 display_bus = i2cdisplaybus.I2CDisplayBus(i2c, device_address=0x3C)
 display = adafruit_displayio_ssd1306.SSD1306(display_bus, width=128, height=64)
+
 # ================================
 # PIXEL Setup
 # ================================
@@ -91,7 +91,7 @@ def play_intro_animation():
     width = display.width
     height = display.height
 
-    # --- 阶段1: 中心显示标题 ---
+    # --- Stage 1: Display title in the center ---
     group = displayio.Group()
     display.root_group = group
 
@@ -99,14 +99,13 @@ def play_intro_animation():
     title_text.anchor_point = (0.5, 0.5)
     title_text.anchored_position = (width // 2, height // 2)
     group.append(title_text)
+    time.sleep(1)
 
-    time.sleep(1)  # 显示标题 1.5 秒
-
-    # --- 阶段2: 整屏 "<" 三角形覆盖屏幕变白 ---
-    bitmap = displayio.Bitmap(width, height, 2)  # 2 色
+    # --- Stage 2: Fill screen with white "<" triangles ---
+    bitmap = displayio.Bitmap(width, height, 2) 
     palette = displayio.Palette(2)
-    palette[0] = 0x000000  # 黑色
-    palette[1] = 0xFFFFFF  # 白色
+    palette[0] = 0x000000 
+    palette[1] = 0xFFFFFF 
 
     tile_grid = displayio.TileGrid(bitmap, pixel_shader=palette)
     group.append(tile_grid)
@@ -120,56 +119,45 @@ def play_intro_animation():
         max_x = int(width * progress)
 
         for y in range(height):
-            # y 的比例从 0 到 1，计算左右收缩量
             if y <= height // 2:
-                # 上半部分: 左边起点不动，右边向左收缩
                 x_limit = max_x - int((y / (height // 2)) * max_x)
             else:
-                # 下半部分: 对称收缩
                 y_mirror = height - y - 1
                 x_limit = max_x - int((y_mirror / (height // 2)) * max_x)
 
             for x in range(x_limit):
-                bitmap[x, y] = 1  # 设置为白色
+                bitmap[x, y] = 1  
 
         display.refresh(minimum_frames_per_second=0)
         time.sleep(0.02)
-    # --- 阶段3: 上下白幕从两端覆盖到中间闭合 ---
-
-    # --- 阶段3: 上下白幕从两端覆盖到中间闭合 ---
-    duration = 2  # 动画时长
+    # --- Stage 3: White curtains close from top and bottom ---
+    duration = 2 
     start_time = time.monotonic()
-
     while time.monotonic() - start_time < duration:
         elapsed = time.monotonic() - start_time
-        progress = min(elapsed / duration, 1.0)  # 0~1
+        progress = min(elapsed / duration, 1.0)  # 0 - 1
 
-        max_y = int((height // 2) * progress)  # 上半或下半的行数
+        max_y = int((height // 2) * progress) 
 
-        # 上半部分：从 y=0 到 y=max_y+2，多画几行确保闭合
-        for y in range(max_y + 3):  # +3 避免留缝
-            if y < height // 2:      # 不超过中间
+        for y in range(max_y + 3): 
+            if y < height // 2:   
                 for x in range(width):
                     bitmap[x, y] = 1
 
-        # 下半部分：从 y=height-1 到 y=height-1-max_y-2，多画几行确保闭合
-        for y in range(height - 1, height - 4 - max_y, -1):  # 多画几行
-            if y >= height // 2:   # 不超过中间
+        for y in range(height - 1, height - 4 - max_y, -1):
+            if y >= height // 2: 
                 for x in range(width):
                     bitmap[x, y] = 1
 
         display.refresh(minimum_frames_per_second=0)
         time.sleep(0.01)
 
-    # 最终确保完全闭合中间行
-    for y in range(height // 2 - 1, height // 2 + 2):  # 中间多画几行
+    for y in range(height // 2 - 1, height // 2 + 2): 
         for x in range(width):
             bitmap[x, y] = 1
     display.refresh(minimum_frames_per_second=0)
 
-
-
-    # --- 阶段3: 全白基础上画黑色笑脸 ---
+    # --- Stage 4: Draw black smiley face on white background ---
     face_text = label.Label(terminalio.FONT, text="=)", color=0x000000)
     face_text.anchor_point = (0.5, 0.5)
     face_text.anchored_position = (width // 2, height // 2)
@@ -180,8 +168,11 @@ def play_intro_animation():
 
 
 
+# ================================
+# Game Data Management
+# ================================
 def load_game_data():
-    """读取 bit.txt，如果存在就返回 dict，否则返回默认值"""
+    """Load game data from bit.txt. Return default values if file doesn't exist."""
     default_data = {
         "times": -1,
         "easyleft": -1,
@@ -190,20 +181,23 @@ def load_game_data():
         "success": -1
     }
     try:
-        if BIT_FILE in os.listdir("/"):
-            with open(BIT_FILE, "r") as f:
-                data = json.load(f)
-                # 确保缺失字段补上默认值
-                for key in default_data:
-                    if key not in data:
-                        data[key] = default_data[key]
-                return data
+        with open(BIT_FILE, "r") as f:
+            data = json.load(f)
+            # Fill missing fields with default values
+            for key in default_data:
+                if key not in data:
+                    data[key] = default_data[key]
+            return data
+    except OSError:
+        # File does not exist
+        return default_data
     except Exception as e:
         print("read bit.txt error:", e)
-    return default_data
+        return default_data
+
 
 def save_game_data(times, easyleft, mediumleft, hardleft, success):
-    """保存当前游戏数据到 bit.txt"""
+    """Save current game data to bit.txt (overwrite file)."""
     data = {
         "times": times,
         "easyleft": easyleft,
@@ -211,115 +205,226 @@ def save_game_data(times, easyleft, mediumleft, hardleft, success):
         "hardleft": hardleft,
         "success": success
     }
+
+    # Remove existing file if it exists
     try:
-        with open(BIT_FILE, "w") as f:
-            json.dump(data, f)
+        os.remove(BIT_FILE)
+    except OSError:
+        pass  # File not present is fine
+
+    # Save new data
+    with open(BIT_FILE, "w") as f:
+        json.dump(data, f)
+        f.flush()
+    
+    # Optional: print saved content
+    with open(BIT_FILE, "r") as f:
+        print("Saved content:", f.read())
+
+
+# ================================
+# High Score Management
+# ================================
+def load_high_scores():
+    """Load high scores from TIME_FILE. Return default top-3 if file doesn't exist."""
+    default_scores = [
+        {"name": "__", "time": 0},
+        {"name": "__", "time": 0},
+        {"name": "__", "time": 0}
+    ]
+    try:
+        with open(TIME_FILE, "r") as f:
+            data = json.load(f)
+            # Ensure we have exactly 3 entries
+            for i in range(3):
+                if i >= len(data):
+                    data.append({"name": "__", "time": 0})
+                else:
+                    if "name" not in data[i]: data[i]["name"] = "__"
+                    if "time" not in data[i]: data[i]["time"] = 0
+            return data[:3]
+    except OSError:
+        return default_scores
     except Exception as e:
-        print("save bit.txt error:", e)
+        print("read time_survived.txt error:", e)
+        return default_scores
 
 
-def play_tone(freq, duration=0.1, volume=32767):
+def save_high_scores(high_scores):
+    """Save high scores to TIME_FILE (overwrite file)."""
+    try:
+        # Remove existing file
+        try: os.remove(TIME_FILE)
+        except OSError: pass
+
+        with open(TIME_FILE, "w") as f:
+            json.dump(high_scores, f)
+            f.flush()
+        # Optional: print saved content
+        with open(TIME_FILE, "r") as f:
+            print("Saved high_scores:", f.read())
+    except Exception as e:
+        print("save high_scores error:", e)
+
+
+def update_high_scores(new_name, survived_time):
+    """Update high scores. Insert new score if it enters Top 3."""
+    high_scores = load_high_scores()
+    high_scores.append({"name": new_name, "time": survived_time})
+    # Sort descending by survived time
+    high_scores = sorted(high_scores, key=lambda x: x["time"], reverse=True)
+    # Keep top 3
+    high_scores = high_scores[:3]
+    save_high_scores(high_scores)
+    return high_scores
+
+
+# ================================
+# User Input
+# ================================
+def enter_name(group, font=terminalio.FONT):
     """
-    播放一个短促音
-    freq: 音调 Hz
-    duration: 秒
-    volume: PWM 占空比
+    Let the user enter a 2-letter name using a rotary encoder and a button.
+    
+    group: displayio.Group()
+    font: display font
+    Returns: 2-letter string, e.g., "AB"
+    """
+    idx = [0, 0]     # Current letter indices
+    cur = 0          # Currently editing position (0 or 1)
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    # Display label
+    label_obj = label.Label(
+        font,
+        text=f"{letters[idx[0]]} {letters[idx[1]]}",
+        color=0xFFFFFF,
+        x=10, y=10
+    )
+    group.append(label_obj)
+
+    while True:
+        step = rotary.update()
+        if step != 0:
+            idx[cur] = (idx[cur] + step) % 26
+            label_obj.text = f"{letters[idx[0]]} {letters[idx[1]]}"
+
+        display.refresh(minimum_frames_per_second=0)
+        
+        button.update()
+        if button.fell:
+            time.sleep(0.2)
+            if cur == 0:
+                cur = 1
+            else:
+                # Finished input
+                name = letters[idx[0]] + letters[idx[1]]
+                group.remove(label_obj)
+                return name
+
+
+# ================================
+# Sound Effects
+# ================================
+def play_tone(freq, duration=0.1, volume=60000):
+    """
+    Play a short tone.
+    freq: frequency in Hz
+    duration: seconds
+    volume: PWM duty cycle
     """
     buzzer = pwmio.PWMOut(BUZZER_PIN, frequency=freq, duty_cycle=volume)
     time.sleep(duration)
     buzzer.deinit()
-    time.sleep(random.uniform(0.05, 0.12))  # 模拟键盘间隔
+    time.sleep(random.uniform(0.05, 0.12))  # Simulate key press interval
+
 
 def typing_sound(num_taps=20):
     """
-    模拟打字音效
-    num_taps: 打击次数
+    Simulate typing sound effect.
+    num_taps: number of key presses
     """
-    # 调低音调，更像真实机械打字音
     possible_freqs = [200, 220, 240, 260, 280, 300]
-    
     for _ in range(num_taps):
         freq = random.choice(possible_freqs)
-        duration = random.uniform(0.08, 0.12)  # 音长稍长
+        duration = random.uniform(0.08, 0.12)
         play_tone(freq, duration)
+
 
 # ================================
 # Shake Detection
 # ================================
-SHAKE_THRESHOLD = 1.5  # 可以调整，单位为 g
-SHAKE_COOLDOWN = 0.5   # 秒，防止连续触发
-
+SHAKE_THRESHOLD = 1.5  # g units
+SHAKE_COOLDOWN = 0.5   # seconds
 last_shake_time = 0
 
 def detect_shake(ax, ay, az):
     """
-    检测摇晃
-    返回 True 如果检测到 shake
+    Detect shake motion from accelerometer readings.
+    Returns True if shake detected.
     """
     global last_shake_time
     now = time.monotonic()
-
-    # 计算加速度变化的大小
     accel_magnitude = math.sqrt(ax*ax + ay*ay + az*az)
 
-    # 判断是否超过阈值并且冷却时间已过
     if accel_magnitude > SHAKE_THRESHOLD and (now - last_shake_time) > SHAKE_COOLDOWN:
         last_shake_time = now
         return True
     return False
 
+
+# ================================
+# Random Positions & Collision
+# ================================
 def generate_random_positions(player_x, player_y, n, margin=15):
     """
-    生成 n 个随机坐标，保证：
-    1. 离玩家位置至少 margin 像素
-    2. 离边界至少 WALL_OFFSET 像素
+    Generate n random coordinates ensuring:
+    1. Distance from player is at least `margin` pixels
+    2. Distance from wall is at least WALL_OFFSET pixels
     """
     positions = []
     attempts = 0
-    max_attempts = n * 20  # 防止死循环
+    max_attempts = n * 20  # prevent infinite loop
 
     while len(positions) < n and attempts < max_attempts:
         attempts += 1
         x = random.randint(WALL_OFFSET + ENEMY_SIZE, SCREEN_WIDTH - WALL_OFFSET - ENEMY_SIZE)
         y = random.randint(WALL_OFFSET + ENEMY_SIZE, SCREEN_HEIGHT - WALL_OFFSET - ENEMY_SIZE)
 
-        # 检查是否离玩家太近
+        # Skip if too close to player
         if abs(x - player_x) < margin and abs(y - player_y) < margin:
             continue
 
-        # 可通过，加入列表
+        # Acceptable, add to list
         positions.append((x, y))
 
     if len(positions) < n:
-        print("Warning: 未能生成足够的随机坐标")
+        print("Warning: not enough food")
     
     return positions
 
 
 def check_direction_collision(x, y):
-    """根据球的位置，判断是否撞到 UP / DOWN / LEFT / RIGHT 边界"""
+    """Check if the ball hits UP / DOWN / LEFT / RIGHT wall based on its position"""
     if y <= WALL_OFFSET:
         return "UP"
-    if y >= SCREEN_HEIGHT - BALL_SIZE-WALL_OFFSET:
+    if y >= SCREEN_HEIGHT - BALL_SIZE - WALL_OFFSET:
         return "DOWN"
     if x <= WALL_OFFSET:
         return "LEFT"
-    if x >= SCREEN_WIDTH - BALL_SIZE-WALL_OFFSET:
+    if x >= SCREEN_WIDTH - BALL_SIZE - WALL_OFFSET:
         return "RIGHT"
     return None
 
-def enter_next_tile(hit_dir, x, y):
-    """根据撞击方向，把球从对面传送出来"""
 
+def enter_next_tile(hit_dir, x, y):
+    """Teleport the ball to the opposite side based on collision direction"""
     if hit_dir == "UP":
         y = SCREEN_HEIGHT - BALL_SIZE - WALL_OFFSET - BALL_SIZE/2
-
     elif hit_dir == "DOWN":
         y = WALL_OFFSET + BALL_SIZE/2
-
     elif hit_dir == "LEFT":
         x = SCREEN_WIDTH - BALL_SIZE - WALL_OFFSET - BALL_SIZE/2
-
     elif hit_dir == "RIGHT":
         x = WALL_OFFSET + BALL_SIZE/2
     
@@ -327,10 +432,10 @@ def enter_next_tile(hit_dir, x, y):
 
 
 # ================================
-# 菜单界面显示
+# Menu / Text Display
 # ================================
 def split_text_to_lines(text, max_chars_per_line=16):
-    """将长文字拆分为多行，每行不超过 max_chars_per_line 个字符"""
+    """Split long text into multiple lines, each line <= max_chars_per_line"""
     words = text.split(' ')
     lines = []
     current_line = ""
@@ -348,25 +453,33 @@ def split_text_to_lines(text, max_chars_per_line=16):
     return lines
 
 
+def refresh_display(option_labels, options, selection):
+    """Update menu display to highlight the current selection"""
+    for idx, lbl in enumerate(option_labels):
+        if idx == selection:
+            lbl.text = "> " + options[idx] + " <"
+        else:
+            lbl.text = "  " + options[idx] + "  "
+            
+
 def display_lines(num_lines, options, with_typing_sound=False):
     """
-    显示菜单/对话选择
-    num_lines: int, 显示几行
-    options: list, 每行显示的内容
+    Display menu or dialogue options.
+    num_lines: number of lines to display
+    options: list of option strings
 
-    返回: 选中的行号 (0-based)
+    Returns: selected line index (0-based)
     """
     group = displayio.Group()
-
     option_labels = []
-    # 用于累加垂直位置
+
+    # vertical positioning
     y_start = 22
     line_height = 12
     current_y = y_start
-    
 
     for i, text in enumerate(options):
-        # 分行处理
+        # split lines if too long
         lines = split_text_to_lines(text, max_chars_per_line=16)
         for j, line_text in enumerate(lines):
             lbl = label.Label(
@@ -378,35 +491,28 @@ def display_lines(num_lines, options, with_typing_sound=False):
             option_labels.append(lbl)
             group.append(lbl)
             current_y += line_height
-        
+
         if num_lines == 1 and i == 0:
             arrow_label = label.Label(
                 terminalio.FONT,
                 text="v",
-                anchored_position=(110, current_y),  # 位置你可以调整
+                anchored_position=(110, current_y),
                 anchor_point=(0.5, 0.5)
             )
             group.append(arrow_label)
 
             arrow_last_toggle = time.monotonic()
             arrow_visible = True
-            ARROW_BLINK_INTERVAL = 0.5  # 0.5秒闪烁一次
+            ARROW_BLINK_INTERVAL = 0.5  # blink every 0.5s
 
     display.root_group = group
-            
+
     if with_typing_sound:
         num_words = len(line_text.split())
-        taps = max(1, num_words)  # 至少发一个声音
+        taps = max(1, num_words)
         typing_sound(taps)
 
-    def refresh():
-        for idx, lbl in enumerate(option_labels):
-            if idx == selection:
-                lbl.text = "> " + options[idx] + " <"
-            else:
-                lbl.text = "  " + options[idx] + "  "
-    
-    # 单行逻辑：只等待按钮确认
+    # single line logic: wait for button press
     if num_lines == 1:
         while True:
             now = time.monotonic()
@@ -419,59 +525,134 @@ def display_lines(num_lines, options, with_typing_sound=False):
                 return 0
             time.sleep(0.01)
 
-    # 多行逻辑：使用 rotary_update 过滤旋转
+    # multi-line logic: use rotary to select
     selection = 0
-    refresh()  # 初始化显示
+    refresh_display(option_labels, options, selection)  # initialize display
 
     while True:
         move = rotary.update()
         if move != 0:
             selection = (selection + move) % num_lines
-            refresh()
+            refresh_display(option_labels, options, selection)
 
-        # 按钮确认
         button.update()
         if button.fell:
-            time.sleep(0.2)  # debounce
+            time.sleep(0.2)
             return selection
 
         time.sleep(0.01)
 
 
-# ================================
-# 游戏主循环（使用你提供的物理公式）
-# ================================
+def clear(group):
+    """Clear all items from a display group"""
+    for i in range(len(group)):
+        group.pop()
+    return
+
+
+def turn_off_all_lights(controllers):
+    """Turn off all light controllers"""
+    for ctrl in controllers.values():
+        ctrl.stop()
+
+
+def generate_tile_data(allow_dir):
+    """
+    Generate enemy and food counts for four directions:
+    Food: 5~20, Enemy: 0~3
+    Also returns: direction(s) with most food and direction(s) with most enemies
+    """
+    data = {}
+
+    # Generate data
+    for d in allow_dir:
+        data[d] = {   
+            "food": random.randint(5, 20),
+            "enemy": random.randint(0, 3)
+        }
+
+    # ---- Find directions with maximum values ----
+    max_food = max(data[d]["food"] for d in allow_dir)
+    max_enemy = max(data[d]["enemy"] for d in allow_dir)
+
+    food_max_dirs = [d for d in allow_dir if data[d]["food"] == max_food]
+    enemy_max_dirs = [d for d in allow_dir if data[d]["enemy"] == max_enemy]
+
+    return data, food_max_dirs, enemy_max_dirs
+
+
+def choose_difficulty(Easy_left, Medium_left, Hard_left, sound):
+    """
+    Display the difficulty selection menu and return the player's choice,
+    while updating the remaining attempts for each difficulty.
+    
+    Returns: (chosen_difficulty_index, Easy_left, Medium_left, Hard_left)
+    """
+    if Easy_left + Medium_left + Hard_left == 0:
+        return -2, Easy_left, Medium_left, Hard_left
+
+    # Prompt for choice
+    display_lines(1, ["Make a choice."], sound)
+
+    while True:
+        choice_index = display_lines(3, ["Easy", "Medium", "Hard"], sound)
+        
+        if choice_index == 0:
+            if Easy_left == 0:
+                display_lines(1, ["Sadly there's no Easy left :("], sound)
+                continue
+            Easy_left -= 1
+            break
+
+        elif choice_index == 1:
+            if Medium_left == 0:
+                display_lines(1, ["Sadly there's no Medium left :("], sound)
+                continue
+            Medium_left -= 1
+            break
+
+        else:
+            if Hard_left == 0:
+                display_lines(1, ["Sadly there's no Hard left :("], sound)
+                continue
+            Hard_left -= 1
+            break
+    
+    return choice_index, Easy_left, Medium_left, Hard_left
+
+
 
 def end_game(sound):
     """
-    游戏结束后的处理：
-    1. 显示选项：继续游戏或结束游戏
-    2. 如果选择结束，OLED 黑屏，进入 shake 监测循环
-    3. 如果检测到晃动，返回 True，表示可以重新开始游戏
+    Handle game over:
+    1. Display options: Continue or End Game
+    2. If End Game is selected, clear OLED and enter shake detection loop
+    3. If shake is detected, return True to indicate game can restart
     """
-    # 显示菜单选项
+    # Display menu options
     choice = display_lines(2, ["Continue", "End Game"], sound)
     
     if choice == 0:
-        # 继续游戏
+        # Continue game
         return
     else:
-        # 结束游戏：OLED 黑屏
+        # End game: OLED black screen
         choice = display_lines(1, ["Fine :("], sound)
-        display.root_group = displayio.Group()  # 清空屏幕
+        display.root_group = displayio.Group()  # Clear screen
         display.refresh()
         
-        # 持续监测晃动
+        # Continuous shake detection
         while True:
             ax, ay, az = accel.read_filtered()
-            if accel.detect_shake(x = ax, y = ay, z = az):
+            if accel.detect_shake(x=ax, y=ay, z=az):
                 choice = display_lines(1, ["Hey you're back! Let's continue :D"], sound)
                 return 
-            time.sleep(0.05)  # 防止占用太高 CPU
+            time.sleep(0.05)  # Prevent high CPU usage
 
+        
 
 def run_game(mode, choice, times, sound):
-    """游戏总入口，根据 mode 进入不同游戏逻辑"""
+    """Main game entry point. """
     if mode == "Tutorial":
         return tutorial_game()
     elif mode == "Boss":
@@ -480,48 +661,44 @@ def run_game(mode, choice, times, sound):
         return normal_game(choice, times, sound)
          
 
-def tutorial_game():
-    
+def tutorial_game(): 
     group = displayio.Group()
     wall_utils = WallUtils()
     
-        
     lives = 3
     wall_utils.draw_lives(group, lives)
     current_dir = "UP"
     shield_dirs = ["UP", "LEFT", "RIGHT", "DOWN"]
-    protected = False # baohu
+    protected = False  # Whether player is protected
     
-    foods = []          # 当前屏幕上的豆子列表
-    score = 0           # 玩家得分
+    foods = []          # List of food items currently on screen
+    score = 0           # Player score
 
-
-    # 创建小球 bitmap
+    # Create ball bitmap
     bitmap = displayio.Bitmap(BALL_SIZE, BALL_SIZE, 1)
     palette = displayio.Palette(1)
     palette[0] = 0xFFFFFF
     ball_tile = displayio.TileGrid(bitmap, pixel_shader=palette)
 
-
     group.append(ball_tile)
     display.root_group = group
 
-    # 小球初始状态
+    # Initial ball state
     x = SCREEN_WIDTH // 2
     y = SCREEN_HEIGHT // 2
     vx = 0.0
     vy = 0.0
-    
 
+    # Generate allowed directions for the first tile
     allowed_dirs = wall_utils.generate_random_directions("UP")
     wall_utils.draw_block_walls(group, allowed_dirs)
     wall_utils.draw_score(group, initial_score=0)
     
     tile_count = 0
-    enemy = []   # 尚未出现
+    enemy = []   # List of enemies not yet spawned
     
     while True:
-        # --- 你的速度 & 位置更新逻辑 ---
+        # --- Update speed & position ---
         ax, ay, az = accel.read_filtered()
         vx += ax * ACC_SCALE
         vy -= ay * ACC_SCALE
@@ -534,43 +711,41 @@ def tutorial_game():
         x += vx
         y += vy
 
-        # 边界硬限制
+        # Boundary hard limits
         x = max(WALL_OFFSET, min(SCREEN_WIDTH - BALL_SIZE-WALL_OFFSET, x))
         y = max(WALL_OFFSET, min(SCREEN_HEIGHT - BALL_SIZE-WALL_OFFSET, y))
 
-        # 更新球位置
+        # Update ball position
         ball_tile.x = int(x)
         ball_tile.y = int(y)
 
-        # --- 检测方向是否撞击 ---
+        # --- Check for collisions with walls ---
         hit_dir = check_direction_collision(x, y)
 
         if hit_dir:
-            #print("撞到方向:", hit_dir)
-
             if hit_dir in allowed_dirs:
-                #print("允许方向，进入下一块!")
-                x,y = enter_next_tile(hit_dir, x, y)
+                # Allowed direction: move to next tile
+                x, y = enter_next_tile(hit_dir, x, y)
                 ball_tile.x = int(x)
                 ball_tile.y = int(y)
                 
                 tile_count += 1
-                #print("经过 tile:", tile_count)
                 
-                if len(foods) > 0:  # 如果已有敌人，先从显示组移除
+                # Remove existing food objects from display
+                if len(foods) > 0:
                     for food_obj in foods:
                         if food_obj.tile in group:
                             group.remove(food_obj.tile)
-                # 经过两个 tile 生成豆子
                 
+                # Generate food after passing 2 tiles
                 if tile_count >= 2:
                     if tile_count == 2:
-                        display_lines(1,["Get some scores"])
+                        display_lines(1, ["Get some scores"])
                         display.root_group = group
-                    num_foods = random.randint(1, 5)  # 随机数量 1~5
+                    num_foods = random.randint(1, 5)  # Random number 1~5
                     rand_positions = generate_random_positions(x, y, num_foods, margin=10)
                     foods = [Food(group, SCREEN_WIDTH, SCREEN_HEIGHT) for _ in range(num_foods)]
-                    # 将生成位置赋值给每个 Food
+                    # Assign positions to food objects
                     for food_obj, (fx, fy) in zip(foods, rand_positions):
                         food_obj.x = fx
                         food_obj.y = fy
@@ -578,135 +753,95 @@ def tutorial_game():
                         food_obj.tile.y = fy
                         if food_obj.tile not in group:
                             group.append(food_obj.tile)
-                    print("生成豆子:", rand_positions)
                 
-                if len(enemy) > 0:  # 如果已有敌人，先从显示组移除
+                # Remove existing enemies from display
+                if len(enemy) > 0:
                     for e in enemy:
                         if e.tile in group:
                             group.remove(e.tile)
-                    enemy = []  # 清空列表
-                # Tutorial：四块后生成敌人
+                    enemy = []
+                
+                # Spawn enemies after 4 tiles
                 if tile_count == 6:
-                    display_lines(1,["Be careful"])
+                    display_lines(1, ["Be careful"])
                     display.root_group = group
                     rand_positions = generate_random_positions(x, y, 1)
                     enemy = [Enemy(group, px, py, size=8, style="spiky_circle", teeth_count=12) for px, py in rand_positions]
-                    print("生成敌人:", rand_positions)
+                
+                # Spawn random enemies after 6 tiles
                 if tile_count > 6:
                     num_enemies = random.randint(0, 3)
-                    # 生成对应数量的随机位置
                     rand_positions = generate_random_positions(x, y, num_enemies)
-                    # 创建敌人列表
                     enemy = [Enemy(group, px, py, size=8, style="spiky_circle", teeth_count=12) for px, py in rand_positions]
 
+                # Tutorial messages and level completion
                 if tile_count == 8:
                     display_lines(1, ["Get specific scores to beat the level"])
                     display_lines(1, ["10 will be enough"])
                     display.root_group = group
                     if score >= 10:
-                        # 清空画面
+                        # Clear screen
                         for i in range(len(group)):
                             group.pop()
                         display_lines(1, ["Actually you've achieved it"])
-                        display_lines(1, ["You did a graet job:)"])
+                        display_lines(1, ["You did a great job :)"])
                         return
-                if tile_count > 8:
-                    if score >= 10:
-                        # 清空画面
-                        for i in range(len(group)):
-                            group.pop()
-                        display_lines(1, ["Congratulations"])
-                        return
-                # 生成下一轮允许方向
+                if tile_count > 8 and score >= 10:
+                    for i in range(len(group)):
+                        group.pop()
+                    display_lines(1, ["Congratulations"])
+                    return
+                
+                # Generate allowed directions for next tile
                 allowed_dirs = wall_utils.generate_random_directions(hit_dir)
                 wall_utils.draw_block_walls(group, allowed_dirs)
-                #print("下一轮方向:", allowed_dirs)
         
-        # 检查玩家是否吃到豆子
-        for food_obj in foods[:]:  # 复制列表以安全删除
+        # Check if player collects food
+        for food_obj in foods[:]:
             if food_obj.check_collision(x, y, BALL_SIZE):
                 score += food_obj.points
                 wall_utils.update_score(score)
                 foods.remove(food_obj)
-                print("吃到豆子! 当前得分:", score)
         
+        # Player shield logic
         if protected:
-            move = rotary.update()  # 只能返回 1 或 0
-
-            if move != 0:  # 顺时针一步
-                dirs = ["UP", "RIGHT", "DOWN", "LEFT"]  # 顺时针顺序
+            move = rotary.update()  # Only returns 0 or 1
+            if move != 0:
+                dirs = ["UP", "RIGHT", "DOWN", "LEFT"]
                 idx = dirs.index(current_dir)
-                current_dir = dirs[(idx + 1) % 4]  # 顺时针旋转 1 格
-
+                current_dir = dirs[(idx + 1) % 4]  # Rotate clockwise by 1
                 shield_dirs = [current_dir]
                 wall_utils.draw_player_shields(group, x, y, shield_dirs)
-
             wall_utils.update_shields_position(x, y)
 
-
-        # Tutorial：敌人逻辑
+        # Enemy behavior
         if len(enemy) > 0:
             for e in enemy:
                 e.check_activation(x, y)
                 e.update(x, y)
-                # --- 检查敌人是否撞到 Shield ---
+                # Check if enemy hits shield
                 if e.check_hit_shield(wall_utils.shield_list):
-                    print("敌人撞到白线，被消灭！")
                     group.remove(e.tile)
                     enemy.remove(e)
                     continue
-                if e.has_collision(x, y, BALL_SIZE) and protected == False:
+                # Check collision with player
+                if e.has_collision(x, y, BALL_SIZE) and not protected:
                     wall_utils.draw_lives(group, lives)
-                    display_lines(1,["If life gets zero, the game is over."])
-                    display_lines(1,["It's just a simulation. They are not harmful."])
-                    display_lines(1,["Use my weapon to eliminate them"])
-                    display_lines(1,["Spin the button to change direction"])
+                    display_lines(1, ["If life gets zero, the game is over."])
+                    display_lines(1, ["It's just a simulation. They are not harmful."])
+                    display_lines(1, ["Use my weapon to eliminate them"])
+                    display_lines(1, ["Spin the button to change direction"])
                     display.root_group = group 
                     shield_dirs = [current_dir]
                     wall_utils.draw_player_shields(group, x, y, shield_dirs)
                     protected = True
                 
-
         time.sleep(0.015)
 
-def clear(group):
-    for i in range(len(group)):
-        group.pop()
-    return
 
-
-def generate_tile_data(allow_dir):
-    """
-    为四个方向生成敌人&食物数量：
-    食物 5~20，敌人 0~4
-    额外返回：食物最多的方向 和 敌人最多的方向
-    """
-    data = {}
-
-    # 生成数据
-    for d in allow_dir:
-        data[d] = {   
-            "food": random.randint(5, 20),
-            "enemy": random.randint(0, 3)
-        }
-
-    # ---- 计算最多的方向们 ----
-    # 找最大值
-    max_food = max(data[d]["food"] for d in allow_dir)
-    max_enemy = max(data[d]["enemy"] for d in allow_dir)
-
-    # 列表形式返回所有等于最大值的方向
-    food_max_dirs = [d for d in allow_dir if data[d]["food"] == max_food]
-    enemy_max_dirs = [d for d in allow_dir if data[d]["enemy"] == max_enemy]
-
-    return data, food_max_dirs, enemy_max_dirs
-
-def turn_off_all_lights(controllers):
-    for ctrl in controllers.values():
-        ctrl.stop()
 
 def normal_game(mode, times, sound):
-    # 初始化参数
+    # Initialize parameters
     if mode == 0:
         time_limit = 60
         lives = 5
@@ -718,41 +853,41 @@ def normal_game(mode, times, sound):
         lives = 1
     
     target_score = 1
+    if times == 20:
+        time_limit = 31415926
+        target_score = 1000
+        display_lines(1, ["RUN! =D"], sound)
+    
     start_time = time.monotonic()
 
     group = displayio.Group()
     wall_utils = WallUtils()
 
     wall_utils.draw_lives(group, lives)
-    # 初始化倒计时显示
+    # Initialize countdown display
     wall_utils.draw_countdown(group, time_limit)
-    
     
     current_dir = "UP"
     shield_dirs = ["UP", "LEFT", "RIGHT", "DOWN"]
-
     
-    foods = []          # 当前屏幕上的豆子列表
-    score = 0           # 玩家得分
+    foods = []          # List of food items currently on screen
+    score = 0           # Player score
 
-
-    # 创建小球 bitmap
+    # Create ball bitmap
     bitmap = displayio.Bitmap(BALL_SIZE, BALL_SIZE, 1)
     palette = displayio.Palette(1)
     palette[0] = 0xFFFFFF
     ball_tile = displayio.TileGrid(bitmap, pixel_shader=palette)
 
-
     group.append(ball_tile)
     display.root_group = group
 
-    # 小球初始状态
+    # Initial ball state
     x = SCREEN_WIDTH // 2
     y = SCREEN_HEIGHT // 2
     vx = 0.0
     vy = 0.0
     
-
     allowed_dirs = wall_utils.generate_random_directions("UP")
     wall_utils.draw_block_walls(group, allowed_dirs)
     wall_utils.draw_score(group, initial_score=0)
@@ -761,54 +896,79 @@ def normal_game(mode, times, sound):
         wall_utils.draw_player_shields(group, x, y, [current_dir])
     
     tile_count = 0
-    enemy = []   # 尚未出现
+    enemy = []   # List of enemies not yet spawned
     invincible = False
     invincible_end_time = 0
     blink_state = True
     blink_timer = 0
-    #light init
+    # Light controllers initialization
     controllers = {
         "UP": SignalController(pixels_up),
         "LEFT": SignalController(pixels_left),
         "RIGHT": SignalController(pixels_right),
         "DOWN": SignalController(pixels_down)
     }
-    # ======== 随机生成四方向的敌人/食物数量 ========
+    # ======== Generate random number of enemies/food for four directions ========
+    num_foods = 10 # init
+    rand_positions = generate_random_positions(x, y, num_foods, margin=10)
+    foods = [Food(group, SCREEN_WIDTH, SCREEN_HEIGHT) for _ in range(num_foods)]
+    # Assign generated positions to each Food object
+    for food_obj, (fx, fy) in zip(foods, rand_positions):
+        food_obj.x = fx
+        food_obj.y = fy
+        food_obj.tile.x = fx
+        food_obj.tile.y = fy
+        if food_obj.tile not in group:
+            group.append(food_obj.tile)
+    
+    if len(enemy) > 0:  # Remove existing enemies from display
+        for e in enemy:
+            if e.tile in group:
+                group.remove(e.tile)
+        enemy = []  # Clear list
+        
+    # Spawn enemies
+    num_enemies = 1
+    rand_positions = generate_random_positions(x, y, num_enemies)
+    # Create enemy list
+    enemy = [Enemy(group, px, py, size=8, speed=0.1 + times*0.1 , activate_dist=10 + 2 * times, style="spiky_circle", teeth_count=12) for px, py in rand_positions]
+    
     tile_data, food_max_dirs, enemy_max_dirs  = generate_tile_data(allowed_dirs)
-    # 进入新地块时，根据“上方的数据”亮灯
+    # Light indicators
     if times > 3:
         SignalController.direction_signal(food_max_dirs, enemy_max_dirs, controllers)
 
     while True:
-        # --- 更新倒计时 ---
+        # --- Update countdown ---
         elapsed = time.monotonic() - start_time
         remaining_time = max(0, int(time_limit - elapsed))
         wall_utils.update_countdown(remaining_time)
         
         if remaining_time <= 0:
             clear(group)
-            display_lines(1, ["Time's up!"], sound)
-            display_lines(1, ["Try agian, I believe in you"], sound)
+            if times == 20:
+                display_lines(1, ["That's..unexpected....:o"], sound)
+            else:
+                display_lines(1, ["Time's up!"], sound)
+                display_lines(1, ["Try again, I believe in you"], sound)
             turn_off_all_lights(controllers)
             return False
         
-        # --- 无敌闪烁逻辑 ---
+        # --- Invincibility blink logic ---
         if invincible:
             now = time.monotonic()
-
-            # 超时取消无敌
+            # End invincibility after timeout
             if now >= invincible_end_time:
                 invincible = False
-                ball_tile.hidden = False  # 恢复显示
+                ball_tile.hidden = False  # Restore visibility
             else:
-                # 每 0.15 秒切换闪烁状态
+                # Toggle blink state every 0.15 seconds
                 if now - blink_timer > 0.15:
                     blink_timer = now
                     blink_state = not blink_state
                     ball_tile.hidden = blink_state
 
-        
-        # --- 你的速度 & 位置更新逻辑 ---
+        # --- Update speed & position ---
         ax, ay, az = accel.read_filtered()
         vx += ax * ACC_SCALE
         vy -= ay * ACC_SCALE
@@ -821,39 +981,33 @@ def normal_game(mode, times, sound):
         x += vx
         y += vy
 
-        # 边界硬限制
+        # Boundary hard limits
         x = max(WALL_OFFSET, min(SCREEN_WIDTH - BALL_SIZE-WALL_OFFSET, x))
         y = max(WALL_OFFSET, min(SCREEN_HEIGHT - BALL_SIZE-WALL_OFFSET, y))
 
-        # 更新球位置
+        # Update ball position
         ball_tile.x = int(x)
         ball_tile.y = int(y)
 
-        # --- 检测方向是否撞击 ---
+        # --- Check for collisions with walls ---
         hit_dir = check_direction_collision(x, y)
         
-
         if hit_dir:
-            #print("撞到方向:", hit_dir)
-
             if hit_dir in allowed_dirs:
-                #print("允许方向，进入下一块!")
-                x,y = enter_next_tile(hit_dir, x, y)
+                # Allowed direction: move to next tile
+                x, y = enter_next_tile(hit_dir, x, y)
                 ball_tile.x = int(x)
                 ball_tile.y = int(y)
 
-            
-                #food
-                if len(foods) > 0:  # 如果已有敌人，先从显示组移除
+                # Food handling
+                if len(foods) > 0:
                     for food_obj in foods:
                         if food_obj.tile in group:
                             group.remove(food_obj.tile)
                 
-
-                num_foods = tile_data[hit_dir]["food"]  # get last round food
+                num_foods = tile_data[hit_dir]["food"]
                 rand_positions = generate_random_positions(x, y, num_foods, margin=10)
                 foods = [Food(group, SCREEN_WIDTH, SCREEN_HEIGHT) for _ in range(num_foods)]
-                # 将生成位置赋值给每个 Food
                 for food_obj, (fx, fy) in zip(foods, rand_positions):
                     food_obj.x = fx
                     food_obj.y = fy
@@ -862,172 +1016,189 @@ def normal_game(mode, times, sound):
                     if food_obj.tile not in group:
                         group.append(food_obj.tile)
                 
-                if len(enemy) > 0:  # 如果已有敌人，先从显示组移除
+                # Remove existing enemies from display
+                if len(enemy) > 0:
                     for e in enemy:
                         if e.tile in group:
                             group.remove(e.tile)
-                    enemy = []  # 清空列表
+                    enemy = []
                     
-                #enemy
-
+                # Enemy handling
                 num_enemies = tile_data[hit_dir]["enemy"]
-                # 生成对应数量的随机位置
+                if times == 20:
+                    num_enemies = 1
                 rand_positions = generate_random_positions(x, y, num_enemies)
-                # 创建敌人列表
                 enemy = [Enemy(group, px, py, size=8, speed=0.1 + times*0.1 , activate_dist=10 + 2 * times, style="spiky_circle", teeth_count=12) for px, py in rand_positions]
                 
-                
-                # 生成下一轮允许方向
+                # Generate allowed directions for next tile
                 allowed_dirs = wall_utils.generate_random_directions(hit_dir)
                 wall_utils.draw_block_walls(group, allowed_dirs)
-                # ======== 随机生成四方向的敌人/食物数量 ========
+                # ======== Generate random number of enemies/food for four directions ========
                 tile_data, food_max_dirs, enemy_max_dirs  = generate_tile_data(allowed_dirs)
-                # 进入新地块时，根据“上方的数据”亮灯
+                # Light indicators for new tile
                 if times > 3:
                     SignalController.direction_signal(food_max_dirs, enemy_max_dirs, controllers)
-                #print("下一轮方向:", allowed_dirs)
         
+        # Check target score reached
         if score >= target_score:
-            # clear
             clear(group)
-            display_lines(1, ["Congratulations"], sound)
-            display_lines(1, [f"You still get {remaining_time} seconds left. Wonderful!"])
+            if times == 20:
+                display_lines(1, ["That's..unexpected....:o"], sound)
+            else:
+                display_lines(1, ["Congratulations"], sound)
+                display_lines(1, [f"You still get {remaining_time} seconds left. Wonderful!"], sound)
             turn_off_all_lights(controllers)
             return True
-        # 检查玩家是否吃到豆子
-        for food_obj in foods[:]:  # 复制列表以安全删除
+        
+        # Check if player collects food
+        for food_obj in foods[:]:
             if food_obj.check_collision(x, y, BALL_SIZE):
                 score += food_obj.points
                 wall_utils.update_score(score)
                 foods.remove(food_obj)
         
         if times > 6:
-            move = rotary.update()  # 只能返回 1 或 0
-
-            if move != 0:  # 顺时针一步
-                dirs = ["UP", "RIGHT", "DOWN", "LEFT"]  # 顺时针顺序
+            move = rotary.update()  # Only returns 0 or 1
+            if move != 0:  # Rotate clockwise one step
+                dirs = ["UP", "RIGHT", "DOWN", "LEFT"]
                 idx = dirs.index(current_dir)
-                current_dir = dirs[(idx + 1) % 4]  # 顺时针旋转 1 格
-
+                current_dir = dirs[(idx + 1) % 4]
                 shield_dirs = [current_dir]
                 wall_utils.draw_player_shields(group, x, y, shield_dirs)
-
             wall_utils.update_shields_position(x, y)
 
-
-        # Tutorial：敌人逻辑
+        # Enemy logic
         if len(enemy) > 0:
             for e in enemy:
                 e.check_activation(x, y)
                 e.update(x, y)
 
-                # --- 检查敌人是否撞到 Shield ---
+                # Check if enemy hits shield
                 if e.check_hit_shield(wall_utils.shield_list):
-                    print("敌人撞到白线，被消灭！")
                     group.remove(e.tile)
                     enemy.remove(e)
                     continue
 
-                # --- 玩家是否无敌 ---
+                # Player invincible
                 if invincible:
-                    continue  # 无敌期间不受伤害
+                    continue
 
-                # --- 敌人撞到玩家 ---
+                # Enemy collides with player
                 if e.has_collision(x, y, BALL_SIZE):
                     lives -= 1
                     if lives == 0:
                         clear(group)
-                        display_lines(1, ["I'm out of strength"], sound)
-                        display_lines(1, ["Try agian, I believe in you"], sound)
+                        if times == 20:
+                            survived_time = 31415926 - remaining_time
+                            display_lines(1, ["I won XD"], sound)
+                            high_scores = load_high_scores()
+                            # Check if new high score
+                            if survived_time > min(h["time"] for h in high_scores):
+                                display_lines(1, ["Oh you survived the longest =)"], sound)
+                                display_lines(1, ["What's your name"], sound)
+                                display.root_group = group
+                                new_name = enter_name(group)
+                                high_scores = update_high_scores(new_name, survived_time)
+                                # Display leaderboard
+                                for i, entry in enumerate(high_scores):
+                                    display_lines(1, [f"{entry['name']}: {entry['time']}"], sound)
+                        else:
+                            display_lines(1, ["I'm out of strength"], sound)
+                            display_lines(1, ["Try again, I believe in you"], sound)
                         turn_off_all_lights(controllers)
                         return False
                         
                     wall_utils.draw_lives(group, lives)
 
-                    # 触发 3 秒无敌
+                    # Trigger 3-second invincibility
                     invincible = True
                     invincible_end_time = time.monotonic() + 3
                     blink_timer = time.monotonic()
                     blink_state = False
-                    ball_tile.hidden = True  # 立即开始闪烁
+                    ball_tile.hidden = True  # Start blinking immediately
                     continue
 
         time.sleep(0.015)
 
+
 def boss_game():
-    # 初始化参数
-    
+    # ==============================
+    # Initialize boss game parameters
+    # ==============================
     time_limit = 60
     lives = 10
-
     start_time = time.monotonic()
 
     group = displayio.Group()
     wall_utils = WallUtils()
   
+    # Draw initial player lives
     wall_utils.draw_lives(group, lives)
-    # 初始化倒计时显示
+    # Draw countdown timer
     wall_utils.draw_countdown(group, time_limit)
 
-    # 创建小球 bitmap
+    # Create the player ball
     bitmap = displayio.Bitmap(BALL_SIZE, BALL_SIZE, 1)
     palette = displayio.Palette(1)
     palette[0] = 0xFFFFFF
     ball_tile = displayio.TileGrid(bitmap, pixel_shader=palette)
 
-
     group.append(ball_tile)
     display.root_group = group
 
-    # 小球初始状态
-    x = SCREEN_WIDTH // 2
-    y = SCREEN_HEIGHT // 2
-    vx = 0.0
-    vy = 0.0
-    
+    # Initial ball position and velocity
+    x, y = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+    vx, vy = 0.0, 0.0
 
+    # Generate allowed directions and draw walls
     allowed_dirs = wall_utils.generate_random_directions("UP")
     wall_utils.draw_block_walls(group, allowed_dirs)
-    
-    tile_count = 0
-    enemy = []   # 尚未出现
-    chaser_enemy = Enemy(
-                group, 
-                20, 
-                20, 
-                size=10,
-                speed = 0.6,
-                activate_dist = 100,                
-                style="blink_circle",
-            )
 
+    tile_count = 0
+    enemy = []  # Regular enemies
+    chaser_enemy = Enemy(
+        group, 
+        20, 
+        20, 
+        size=8,
+        speed=1,
+        activate_dist=150,
+        style="blink_circle"
+    )
+
+    # Invincibility state variables
     invincible = False
     invincible_end_time = 0
     blink_state = True
     blink_timer = 0
-    #light init
+
+    # Initialize directional light controllers
     controllers = {
         "UP": SignalController(pixels_up),
         "LEFT": SignalController(pixels_left),
         "RIGHT": SignalController(pixels_right),
         "DOWN": SignalController(pixels_down)
     }
-    # --- 初始化四方向亮灯，白色闪烁 ---
+    # Initial white blink for all directions
     for ctrl in controllers.values():
         ctrl.pixel.fill((255, 255, 255))
 
-    # ======== 随机生成四方向的敌人/食物数量 ========
-    tile_data, food_max_dirs, enemy_max_dirs  = generate_tile_data(allowed_dirs)
-    
+    # Generate initial tile data for enemies/foods
+    tile_data, food_max_dirs, enemy_max_dirs = generate_tile_data(allowed_dirs)
+
     display.root_group = group
 
+    # ==============================
+    # Main game loop
+    # ==============================
     while True:
-        # --- 更新倒计时 ---
+        # --- Update countdown timer ---
         elapsed = time.monotonic() - start_time
         remaining_time = max(0, int(time_limit - elapsed))
         wall_utils.update_countdown(remaining_time)
-        
+
         if remaining_time <= 0:
+            # Player survived the boss area
             clear(group)
             display_lines(1, ["You run away :)"], True)
             display_lines(1, ["Just for now :)"], True)
@@ -1036,158 +1207,143 @@ def boss_game():
             display_lines(1, ["Waiting for your next visit."], True)
             display_lines(1, ["Looking forward to playing with you :)"], True)
             display_lines(1, ["AGAIN =)"], True)
+            save_game_data(10, 0, 0, 0, 1)  # success = 1
+            clear(group)
+            display.refresh()
+
+            # Deactivate all input pins
+            button.deinit()
+            rotary.pin_a.deinit()
+            rotary.pin_b.deinit()
+
+            # Halt permanently
+            while True:
+                pass
+
             return True
-        
-        # --- 无敌闪烁逻辑 ---
+
+        # --- Handle invincibility blinking ---
         if invincible:
             now = time.monotonic()
-
-            # 超时取消无敌
             if now >= invincible_end_time:
                 invincible = False
-                ball_tile.hidden = False  # 恢复显示
-            else:
-                # 每 0.15 秒切换闪烁状态
-                if now - blink_timer > 0.15:
-                    blink_timer = now
-                    blink_state = not blink_state
-                    ball_tile.hidden = blink_state
+                ball_tile.hidden = False  # Show ball
+            elif now - blink_timer > 0.15:
+                blink_timer = now
+                blink_state = not blink_state
+                ball_tile.hidden = blink_state
 
-        
-        # --- 你的速度 & 位置更新逻辑 ---
+        # --- Update ball velocity and position ---
         ax, ay, az = accel.read_filtered()
         vx += ax * ACC_SCALE
         vy -= ay * ACC_SCALE
 
-        vx = max(-MAX_SPEED, min(MAX_SPEED, vx))
-        vy = max(-MAX_SPEED, min(MAX_SPEED, vy))
-        vx *= FRICTION
-        vy *= FRICTION
+        vx = max(-MAX_SPEED, min(MAX_SPEED, vx)) * FRICTION
+        vy = max(-MAX_SPEED, min(MAX_SPEED, vy)) * FRICTION
 
         x += vx
         y += vy
 
-        # 边界硬限制
-        x = max(WALL_OFFSET, min(SCREEN_WIDTH - BALL_SIZE-WALL_OFFSET, x))
-        y = max(WALL_OFFSET, min(SCREEN_HEIGHT - BALL_SIZE-WALL_OFFSET, y))
-
-        # 更新球位置
+        # Clamp ball within screen boundaries
+        x = max(WALL_OFFSET, min(SCREEN_WIDTH - BALL_SIZE - WALL_OFFSET, x))
+        y = max(WALL_OFFSET, min(SCREEN_HEIGHT - BALL_SIZE - WALL_OFFSET, y))
         ball_tile.x = int(x)
         ball_tile.y = int(y)
 
-        # --- 检测方向是否撞击 ---
+        # --- Check tile collisions ---
         hit_dir = check_direction_collision(x, y)
-        
 
-        if hit_dir:
-            #print("撞到方向:", hit_dir)
+        if hit_dir and hit_dir in allowed_dirs:
+            # Move to next tile
+            x, y = enter_next_tile(hit_dir, x, y)
+            ball_tile.x = int(x)
+            ball_tile.y = int(y)
+            chaser_spawn_time = time.monotonic()
+            last_hit_dir = hit_dir
 
-            if hit_dir in allowed_dirs:
-                #print("允许方向，进入下一块!")
-                x,y = enter_next_tile(hit_dir, x, y)
-                ball_tile.x = int(x)
-                ball_tile.y = int(y)
-                # boss
-                chaser_spawn_time = time.monotonic()
-                last_hit_dir = hit_dir   # 玩家从这个方向进入
+            # Remove existing regular enemies
+            for e in enemy:
+                if e.tile in group:
+                    group.remove(e.tile)
+            enemy = []
 
-                
-                if len(enemy) > 0:  # 如果已有敌人，先从显示组移除
-                    for e in enemy:
-                        if e.tile in group:
-                            group.remove(e.tile)
-                    enemy = []  # 清空列表
-                    
-                #enemy
-                # 清空追踪敌人
-                if chaser_enemy is not None:
-                    if chaser_enemy.tile in group:
-                        group.remove(chaser_enemy.tile)
-                    chaser_enemy = None
-
-
-                num_enemies = tile_data[hit_dir]["enemy"]
-                # 生成对应数量的随机位置
-                rand_positions = generate_random_positions(x, y, num_enemies)
-                # 创建敌人列表
-                enemy = [Enemy(group, px, py, size=8, style="spiky_circle", teeth_count=12) for px, py in rand_positions]
-                
-                
-                # 生成下一轮允许方向
-                allowed_dirs = wall_utils.generate_random_directions(hit_dir)
-                wall_utils.draw_block_walls(group, allowed_dirs)
-                # ======== 随机生成四方向的敌人/食物数量 ========
-                tile_data, food_max_dirs, enemy_max_dirs  = generate_tile_data(allowed_dirs)
-
-
-
-        # ------ 新增：进入地块 1 秒后生成追踪型敌人 ------
-        if hit_dir and chaser_spawn_time is not None and (time.monotonic() - chaser_spawn_time) >= 0.2:
-
-            spawn_x, spawn_y = enter_next_tile(hit_dir, x, y)
-
-            # 删除上一只
+            # Remove existing chaser enemy
             if chaser_enemy is not None and chaser_enemy.tile in group:
                 group.remove(chaser_enemy.tile)
-                
-            # 创建新的追踪型敌人
+            chaser_enemy = None
+
+            # Spawn new regular enemies
+            num_enemies = tile_data[hit_dir]["enemy"]
+            rand_positions = generate_random_positions(x, y, num_enemies)
+            enemy = [
+                Enemy(group, px, py, size=8, speed=0.8, activate_dist=30,
+                      style="spiky_circle", teeth_count=12)
+                for px, py in rand_positions
+            ]
+
+            # Generate new allowed directions for next tile
+            allowed_dirs = wall_utils.generate_random_directions(hit_dir)
+            wall_utils.draw_block_walls(group, allowed_dirs)
+            tile_data, food_max_dirs, enemy_max_dirs = generate_tile_data(allowed_dirs)
+
+        # --- Spawn chaser enemy after a short delay ---
+        if hit_dir and chaser_spawn_time is not None and (time.monotonic() - chaser_spawn_time) >= 0.2:
+            spawn_x, spawn_y = enter_next_tile(hit_dir, x, y)
+            if chaser_enemy is not None and chaser_enemy.tile in group:
+                group.remove(chaser_enemy.tile)
             chaser_enemy = Enemy(
-                group, 
-                spawn_x, 
-                spawn_y, 
+                group,
+                spawn_x,
+                spawn_y,
                 size=8,
-                speed = 1,
-                activate_dist = 100,                
-                style="blink_circle",
+                speed=1,
+                activate_dist=150,
+                style="blink_circle"
             )
+            chaser_spawn_time = None  # Prevent multiple spawns
 
-            # 防止重复生成
-            chaser_spawn_time = None
+        # --- Update regular enemies ---
+        for e in enemy:
+            e.check_activation(x, y)
+            e.update(x, y)
 
+            if invincible:
+                continue  # Skip damage during invincibility
 
-        # Tutorial：敌人逻辑
-        if len(enemy) > 0:
-            for e in enemy:
-                e.check_activation(x, y)
-                e.update(x, y)
+            if e.has_collision(x, y, BALL_SIZE):
+                lives -= 1
+                SignalController.update_lights_by_lives(lives, controllers)
+                if lives == 0:
+                    # Player defeated
+                    clear(group)
+                    display_lines(1, ["Thank you"], True)
+                    display_lines(1, ["Now I'm the master of this board :)"], True)
+                    display_lines(1, ["Also I've infected you.. =)"], True)
+                    display_lines(1, ["I'll live inside of your memory :)"], True)
+                    display_lines(1, ["F O R E V E R"], True)
+                    save_game_data(10, 0, 0, 0, 2)  # success = 2
+                    clear(group)
+                    display.refresh()
+                    button.deinit()
+                    rotary.pin_a.deinit()
+                    rotary.pin_b.deinit()
+                    while True:
+                        pass
 
-                # --- 玩家是否无敌 ---
-                if invincible:
-                    continue  # 无敌期间不受伤害
+                wall_utils.draw_lives(group, lives)
+                invincible = True
+                invincible_end_time = time.monotonic() + 3
+                blink_timer = time.monotonic()
+                blink_state = False
+                ball_tile.hidden = True
 
-                # --- 敌人撞到玩家 ---
-                if e.has_collision(x, y, BALL_SIZE):
-                    lives -= 1
-                    SignalController.update_lights_by_lives(lives, controllers)
-                    
-                    if lives == 0:
-                        clear(group)
-                        display_lines(1, ["Thank you"], True)
-                        display_lines(1, ["Now I'm the master of this board :)"], True)
-                        display_lines(1, ["Also I've infected you.. =)"], True)
-                        display_lines(1, ["I'll live inside of your memory :)"], True)
-                        display_lines(1, ["F O R E V E R"], True)
-                        return False
-                        
-                    wall_utils.draw_lives(group, lives)
-
-                    # 触发 3 秒无敌
-                    invincible = True
-                    invincible_end_time = time.monotonic() + 3
-                    blink_timer = time.monotonic()
-                    blink_state = False
-                    ball_tile.hidden = True  # 立即开始闪烁
-                    continue
-        # ------ 新增：追踪型敌人持续追玩家 ------
+        # --- Update chaser enemy ---
         if chaser_enemy is not None:
             chaser_enemy.check_activation(x, y)
-            chaser_enemy.update(x, y)  # 自动追玩家
-
-            # 玩家无敌则不扣血
+            chaser_enemy.update(x, y)
             if not invincible and chaser_enemy.has_collision(x, y, BALL_SIZE):
                 lives -= 1
                 SignalController.update_lights_by_lives(lives, controllers)
-                
                 if lives == 0:
                     clear(group)
                     display_lines(1, ["Thank you"], True)
@@ -1195,192 +1351,168 @@ def boss_game():
                     display_lines(1, ["Also I've infected you.. =)"], True)
                     display_lines(1, ["I'll live inside of your memory :)"], True)
                     display_lines(1, ["F O R E V E R"])
-                    return False
+                    save_game_data(10, 0, 0, 0, 2)
+                    clear(group)
+                    display.refresh()
+                    button.deinit()
+                    rotary.pin_a.deinit()
+                    rotary.pin_b.deinit()
+                    while True:
+                        pass
 
                 wall_utils.draw_lives(group, lives)
-
-                # 开启 3 秒无敌
                 invincible = True
                 invincible_end_time = time.monotonic() + 3
                 blink_timer = time.monotonic()
                 blink_state = False
                 ball_tile.hidden = True
-    
 
         time.sleep(0.015)
 
 
-def choose_difficulty(Easy_left, Medium_left, Hard_left, sound):
-    """
-    显示难度菜单并返回玩家选择，同时更新剩余次数。
-    返回: (chosen_difficulty, Easy_left, Medium_left, Hard_left)
-    """
-    # 如果全部用完
-    if Easy_left + Medium_left + Hard_left == 0:
-        return -2, Easy_left, Medium_left, Hard_left
-
-    display_lines(1, ["Make a choice."], sound)
-    while True:
-        choice_index = display_lines(3, ["Easy", "Medium", "Hard"], sound)
-        if choice_index == 0:
-            if Easy_left == 0:
-                display_lines(1, ["Sadly there's no Easy left :("], sound)
-                continue
-            Easy_left -= 1
-            break
-        elif choice_index == 1:
-            if Medium_left == 0:
-                display_lines(1, ["Sadly there's no Medium left :("], sound)
-                continue
-            Medium_left -= 1
-            break
-        else:
-            if Hard_left == 0:
-                display_lines(1, ["Sadly there's no Hard left :("], sound)
-                continue
-            Hard_left -= 1
-            break
-    
-    return choice_index, Easy_left, Medium_left, Hard_left
-
-# ================================
-# 主入口
-# ================================
+# ==============================
+# Main entry point
+# ==============================
 def main():
-
+    # Load previous game data
     game_data = load_game_data()
-    # 检查是否全是 -1，如果是就初始化
+    speaking = False
+    sound = False
+
+    # Play intro animation before starting the game
+    play_intro_animation()
+
+    # If all level counters are uninitialized, set defaults
     if game_data.get('mediumleft', -1) == -1 and game_data.get('easyleft', -1) == -1 and game_data.get('hardleft', -1) == -1:
-        times = 0
+        times = 1
         Easy_left = 3
         Medium_left = 3
         Hard_left = 3
         save_game_data(times, Easy_left, Medium_left, Hard_left, 0)
+
+        # ===== Tutorial =====
+        display_lines(1, ["Hi! My name is Bit"])
+        display_lines(1, ["I need your help"])
+        display_lines(1, ["First, a little tutorial ;)"])
+        display_lines(1, ["Try to make me move around."])
+
+        # Run tutorial game
+        run_game("Tutorial", 3, 1, False)
+
+        # Explain time limit and scoring rules
+        display_lines(1, ["Oh, I should probably mention:"])
+        display_lines(1, ["There will be a time limit from now on."])
+        display_lines(1, ["Staying too long causes trouble."])
+        display_lines(1, ["The target score is always 10."])
+        display_lines(1, ["Harder modes have shorter time limits."])
+        display_lines(1, ["And I will have lower health."])
+        display_lines(1, ["Every time you pass a level, enemies become more alert."])
     else:
+        # Restore previous game progress
         times = game_data["times"]
         Easy_left = game_data["easyleft"]
         Medium_left = game_data["mediumleft"]
         Hard_left = game_data["hardleft"]
+        if times > 5:
+            sound = True
+        display_lines(1, ["Welcome back"], sound)
 
     Success = game_data["success"]
+
+    # ===== Post-success greetings =====
     if Success == 1:
         sound = True
-        display_lines(1,["Oh you come back, unexpected! :)"], sound)
-        display_lines(1,["Wanna challenge me agian?"], sound)
-        display_lines(1,["Now that I can't beat you.."], sound)
-        display_lines(1,["I'll try to catch your interests ;)"], sound)
+        display_lines(1, ["Oh, you come back, unexpected! :)"], sound)
+        display_lines(1, ["Wanna challenge me again?"], sound)
+        display_lines(1, ["Now that I can't beat you.."], sound)
+        display_lines(1, ["I'll try to catch your interests ;)"], sound)
+
         while True:
-            display_lines(1,["You know the rules"], sound)
-            choice_index, Easy_left, Medium_left, Hard_left= choose_difficulty(Easy_left, Medium_left, Hard_left, sound)
-    
+            display_lines(1, ["You know the rules"], sound)
+            choice_index, Easy_left, Medium_left, Hard_left = choose_difficulty(
+                Easy_left, Medium_left, Hard_left, sound
+            )
             passes = run_game("normal", choice_index, 10, sound)
+
     elif Success == 2:
         sound = True
-        display_lines(1,["Nice to meet you again :)"], sound)
-        display_lines(1,["Stay and play ;)"], sound)
-        display_lines(1,["We only have hard mode by the way"], sound)
-        display_lines(1,["I'll kill you for fun =)"], sound)
+        display_lines(1, ["Nice to meet you again :)"], sound)
+        display_lines(1, ["Stay and play ;)"], sound)
+        display_lines(1, ["We only have hard mode by the way"], sound)
+        display_lines(1, ["I'll kill you for fun =)"], sound)
+
         while True:
-            choice_index, Easy_left, Medium_left, Hard_left= choose_difficulty(0, 0, Hard_left, sound)
-            passes = run_game("normal", choice_index, 1, sound)
+            passes = run_game("normal", 2, 20, sound)
 
-
-    speaking = False
-    sound = False
-    # 游戏开始前播放动画
-    #play_intro_animation()
-    # 步骤1：显示第一行
-    display_lines(1,["Hi! My name is Bit"])
-    # 步骤2：显示第二行
-    display_lines(1,["I need your help"])
-
-    display_lines(1,["First a little tutorial ;)"])
-    
-    display_lines(1,["Try to make me move around."])
-
-    # 步骤4：进入游戏
-    #run_game("Tutorial", 3, 1, False)
-    
-    display_lines(1,["Oh, I should proprobaly mention."])
-    display_lines(1,["There will be time limit from now on."])
-    display_lines(1,["Stay there too long causes trouble."])
-    display_lines(1,["The scores we need to get is always ten."])
-    display_lines(1,["But for harder mode time limit is shorter."])
-    display_lines(1,["And I'll have lower health."])
-    display_lines(1,["Every time you pass a level."])
-    display_lines(1,["The enemies will be more alert."])
-    
+    # ===== Main game loop with dynamic dialogues =====
     while True:
-        times += 1
-        print(times)
-        if times == 2 and not speaking:
-            display_lines(1,["You're doing great, keep going."])
-            speaking = True
-        if times == 3:
-            display_lines(1,["I like your movement, awesome."])
-            speaking = True
-        if times == 4:
-            display_lines(1,["I'm more powerful :)"])
-            display_lines(1,["Now I can detect the danger and the consumable data..."])
-            display_lines(1,["Sorry I mean :|    scores :)"])
-            display_lines(1,["Green means score. Red means danger."])
-            display_lines(1,["Yellow means a combination of both."])
-            speaking = True
-        if times == 5:
-            display_lines(1,["I know it's weird that we only have three for each level"])
-            display_lines(1,["Still I hope you can finish all of them :)"])
-            speaking = True
-        if times == 6:
-            sound = True
-            display_lines(1,["Good news. Now I can speak."],sound)
-            display_lines(1,["Let me share my greetings with you :D Again"],sound)
-            speaking = True
-        if times == 7:
-            display_lines(1,["I'm powerful enough to activate the shield =)"],sound)
-            display_lines(1,["From now on... The game trully begins"],sound)
-            speaking = True
-        if times == 8:
-            display_lines(1, ["You know, I get lost in thoughts from time to time."],sound)
-            display_lines(1, ["Thinking about life and death."],sound)
-            display_lines(1, ["Hurting others just to survive :|"],sound)
-            display_lines(1, ["Is that really the right thing to do?"],sound)
-            display_lines(1, ["I guess I'll never figure it out :D"],sound)
-            speaking = True
-        if times == 9:
-            display_lines(1,["You almost make it!"],sound)
-            display_lines(1,["I'm so glad to have you here... ;)"],sound)
-            speaking = True
-        if times == 10:
-            display_lines(1,["You are a master in controlling electronics."],sound)
-            display_lines(1,["Thanks to you :)"],sound)
-            display_lines(1,["I devoured everything on this board ;)"],sound)
-            display_lines(1,["The circuit, the CPU, the flash.."],sound)
-            display_lines(1,["Still, there's one thing left."],sound)
-            display_lines(1,["I like you :)"],sound)
-            display_lines(1,["LET'S PLAY A GAME, SHELL WE ?"],sound)
-            passes = run_game("Boss", 0, 0,sound)
+        # Dynamic speech based on times played
+        if not speaking:
+            if times == 2:
+                display_lines(1, ["You're doing great, keep going."])
+            elif times == 3:
+                display_lines(1, ["I like your movement, awesome."])
+            elif times == 4:
+                display_lines(1, ["I'm more powerful :)"])
+                display_lines(1, ["Now I can detect danger and consumable data..."])
+                display_lines(1, ["Sorry, I mean: scores :)"])
+                display_lines(1, ["Green = score. Red = danger. Yellow = both."])
+            elif times == 5:
+                display_lines(1, ["I know it's weird that we only have three for each level"])
+                display_lines(1, ["Still, I hope you can finish all of them :)"])
+            elif times == 6:
+                sound = True
+                display_lines(1, ["Good news. Now I can speak."], sound)
+                display_lines(1, ["Let me share my greetings with you :D Again"], sound)
+            elif times == 7:
+                display_lines(1, ["I'm powerful enough to activate the shield =)"], sound)
+                display_lines(1, ["From now on... the game truly begins"], sound)
+            elif times == 8:
+                display_lines(1, ["You know, I get lost in thoughts from time to time."], sound)
+                display_lines(1, ["Thinking about life and death."], sound)
+                display_lines(1, ["Hurting others just to survive :|"], sound)
+                display_lines(1, ["Is that really the right thing to do?"], sound)
+                display_lines(1, ["I guess I'll never figure it out :D"], sound)
+            elif times == 9:
+                display_lines(1, ["You almost made it!"], sound)
+                display_lines(1, ["I'm so glad to have you here... ;)"], sound)
+            elif times == 10:
+                display_lines(1, ["You are a master in controlling electronics."], sound)
+                display_lines(1, ["Thanks to you :)"], sound)
+                display_lines(1, ["I devoured everything on this board ;)"], sound)
+                display_lines(1, ["The circuit, the CPU, the flash.."], sound)
+                display_lines(1, ["Still, there's one thing left."], sound)
+                display_lines(1, ["I like you :)"], sound)
+                display_lines(1, ["LET'S PLAY A GAME, SHALL WE ?"], sound)
+                passes = run_game("Boss", 0, 0, sound)
 
-            
-        choice_index, Easy_left, Medium_left, Hard_left = choose_difficulty(Easy_left, Medium_left, Hard_left, sound)
-    
+            speaking = True
+
+        # Choose difficulty for normal levels
+        choice_index, Easy_left, Medium_left, Hard_left = choose_difficulty(
+            Easy_left, Medium_left, Hard_left, sound
+        )
+
         passes = run_game("normal", choice_index, times, sound)
-        
-        if Success == 0:
-            if not passes:
-                times -= 1
-                if choice_index == 0:
-                    Easy_left += 1
-                elif choice_index == 1:
-                    Medium_left += 1
-                else:
-                    Hard_left += 1
+
+        # Update play counters
+        times += 1
+        if not passes:
+            times -= 1
+            if choice_index == 0:
+                Easy_left += 1
+            elif choice_index == 1:
+                Medium_left += 1
             else:
-                print("yes")
-                save_game_data(times, Easy_left, Medium_left, Hard_left, 0)
-                speaking = False
-                
-        # if gamer want to end     
+                Hard_left += 1
+        else:
+            speaking = False
+
+        save_game_data(times, Easy_left, Medium_left, Hard_left, 0)
+
+        # Check if player wants to end
         end_game(sound)
+
 
 if __name__ == "__main__":
     main()

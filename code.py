@@ -853,7 +853,7 @@ def normal_game(mode, times, sound):
     
     target_score = 1
     if times == 20:
-        time_limit = 31415926
+        time_limit = 1000
         target_score = 1000
         display_lines(1, ["RUN! =D"], sound)
     
@@ -1088,7 +1088,7 @@ def normal_game(mode, times, sound):
                     if lives == 0:
                         clear(group)
                         if times == 20:
-                            survived_time = 31415926 - remaining_time
+                            survived_time = time.monotonic() - start_time
                             display_lines(1, ["I won XD"], sound)
                             high_scores = load_high_scores()
                             # Check if new high score
